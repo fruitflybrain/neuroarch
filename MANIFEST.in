@@ -1,0 +1,7 @@
+recursive-include loaders *.py
+recursive-include neuroarch *.py
+recursive-include tests *.py
+
+include ez_setup.py
+include *.rst
+exclude MANIFEST.in
