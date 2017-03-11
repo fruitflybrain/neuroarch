@@ -266,9 +266,9 @@ class CartridgeModel(CircuitModel):
     element_plural = 'CartridgeModels'
     name = String(nullable=False, unique=False, indexed=True)
 
-class CR(CircuitModel):
-    element_type = 'CR'
-    element_plural = 'CRs'
+class CRModel(CircuitModel):
+    element_type = 'CRModel'
+    element_plural = 'CRModels'
     name = String(nullable=False, unique=False, indexed=True)
 
 class ColumnModel(CircuitModel):
