@@ -1256,9 +1256,11 @@ def _kwargs(kwargs):
             v = _list_repr(v)
             if k=='cls':
                 if kwargs[k]:
-                    classes = "where @class in %s" % v
+                    classes = "where @class in %s" 
             elif k=='cols':
                 columns = ", ".join(cols)
+            elif k=='rid':
+                attrs.append("@rid in %s" % v.__repr__().replace("'",""))
             else:
                 if len(v) == 1 and isinstance(v[0],(unicode,str)) and len(v[0])>=2 and v[0][:2] == '/r':
                     attrs.append("%s matches '%s'" % (k, v[0][2:]))
