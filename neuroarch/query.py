@@ -277,16 +277,10 @@ class QueryWrapper(object):
         return map(self._graph.get_element, self._edges)
 
     def __repr__(self):
-        '''
-        s = '\n'+ self._disp_query
-        #pprint.pformat(self._disp_query, indent=2, 
-        #                        width=60, depth=None)
-        return ('QueryWrapper\n------------\nQuery: %s'
-                '\n\nNodes: [%i]\n'
-                'Edges: [%i]\n') % (str(s), len(self._nodes), len(self._edges))
-        '''
-        return self.query_string
-    
+        return ('QueryWrapper\n------------\n'
+                'Nodes: [%i]\n'
+                'Edges: [%i]\n') % (len(self._nodes), len(self._edges))
+        
     def _execute_query(self, q):
         """
         Return results of a single OrientDB query string.
