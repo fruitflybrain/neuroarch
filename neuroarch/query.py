@@ -1256,7 +1256,7 @@ def _kwargs(kwargs):
             v = _list_repr(v)
             if k=='cls':
                 if kwargs[k]:
-                    classes = "where @class in %s" 
+                    classes = "where @class in %s" % v
             elif k=='cols':
                 columns = ", ".join(cols)
             elif k=='rid':
