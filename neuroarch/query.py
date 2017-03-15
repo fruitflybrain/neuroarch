@@ -762,7 +762,7 @@ class QueryWrapper(object):
         nodes of the query via `HasQueryResults` edges.
         """
         # check if tag already exists
-        assert not self._check_tags(tag), 'Choose unique tag name'
+        if not self._check_tags(tag), return -1
         
         cmd = ['begin']
         
