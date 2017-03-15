@@ -119,6 +119,18 @@ class QueryWrapper(object):
                                       lang='sql'))
 
     @classmethod
+    def from_tag(self, graph,tag):
+        """
+        Create a new `QueryResult` node and connect it to all of the cached
+        nodes of the query via `HasQueryResults` edges.
+        """
+        QueryResultNode = QueryWrapper.from_objs(graph,graph.QueryResult.query(tag=tag).all())
+        output = {}
+        output['metadata'] = QueryResultNode.get_as('df')[0].to_json()
+        output['qw'] = QueryResultNode.gen_traversal_out(['HasQueryResults'],min_depth=1)
+        return output
+        
+    @classmethod
     def from_rids(cls, graph, *rid_list):
         """
         Construct a QueryWrapper given a list of OrientDB RIDs.
@@ -779,6 +791,7 @@ class QueryWrapper(object):
         
         cmd.append("commit retry 10;\nreturn $v;")
         results = self._graph.client.batch(";\n".join(cmd))
+        return 1
         #return self.from_rids(self._graph, *self._records_to_list(results))
         
     def tag_clean_up(self, older_than):
