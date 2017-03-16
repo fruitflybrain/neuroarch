@@ -14,6 +14,7 @@ import pprint
 import re
 import cPickle
 from datetime import datetime
+import json
 
 from pyorient.ogm import Config, Graph
 
@@ -121,12 +122,10 @@ class QueryWrapper(object):
     @classmethod
     def from_tag(self, graph,tag):
         """
-        Create a new `QueryResult` node and connect it to all of the cached
-        nodes of the query via `HasQueryResults` edges.
         """
-        QueryResultNode = QueryWrapper.from_objs(graph,graph.QueryResult.query(tag=tag).all())
+        QueryResultNode = QueryWrapper.from_objs(graph,graph.QueryResults.query(tag=tag).all())
         output = {}
-        output['metadata'] = QueryResultNode.get_as('df')[0].to_json()
+        output['metadata'] = QueryResultNode.get_as('df')[0].to_dict(orient='index').values()[0]
         output['qw'] = QueryResultNode.gen_traversal_out(['HasQueryResults'],min_depth=1)
         return output
         
@@ -763,7 +762,7 @@ class QueryWrapper(object):
     
         
     def _check_tags(self, tag):
-        query = "select tag from QueryResults where tag = '%s'" % tag
+        query = "select tag from QueryResult where tag = '%s'" % tag
         #print query
         results = self._graph.client.command(query)
         return self._records_to_list(results)
@@ -774,19 +773,27 @@ class QueryWrapper(object):
         nodes of the query via `HasQueryResults` edges.
         """
         # check if tag already exists
-        if not self._check_tags(tag): return -1
+        if self._check_tags(tag): return -1
+        qr = self._graph.QueryResults.create(tag=tag)
+        kwargs['tag'] = tag
+        self._graph.client.command('update %s content %s where @rid = %s' % \
+                                     (qr.element_type, json.dumps(kwargs), qr._id))
         
         cmd = ['begin']
         
         # create tag node
-        set_cmd = ["%s = %s" % (k, v.__repr__()) for k, v in kwargs.items()]
-        let_cmd = "let v = CREATE VERTEX QueryResult SET tag = '%s', permanent = %s, created_timestamp = sysdate(), %s" % \
-                    (tag, permanent_flag, ", ".join(set_cmd))
-        cmd.append(let_cmd)
+        #set_cmd = ["%s = %s" % (k, v.__repr__()) for k, v in kwargs.items()]
+        #if set_cmd:
+        #    a = [""]
+        #    a.extend(set_cmd)
+        #    set_cmd = a
+        #let_cmd = "let v = CREATE VERTEX QueryResult SET tag = '%s', permanent = %s, created_timestamp = sysdate() %s" % \
+        #            (tag, permanent_flag, ", ".join(set_cmd))
+        #cmd.append(let_cmd)
         
         # create edges from tag node to query nodes
         for i, node in enumerate(self._nodes):
-            edge_cmd = "let e%s = CREATE EDGE HasQueryResults FROM $v TO %s" % (i, node)
+            edge_cmd = "let e%s = CREATE EDGE HasQueryResults FROM %s TO %s" % (i, qr._id, node)
             cmd.append(edge_cmd)
         
         cmd.append("commit retry 10;\nreturn $v;")
@@ -903,7 +910,6 @@ class QueryWrapper(object):
         edge_cmd = self._copy_edge_command(node_map, edge_types=None, commit_stmt=False)
         
         cmd = 'begin;\n' + "".join(node_cmd) + "".join(edge_cmd) + ";\ncommit retry 100;\nreturn [%s];" % (", ".join(node_map.values()))
-        print cmd
         return cmd, node_map
     
     
@@ -929,7 +935,6 @@ class QueryWrapper(object):
         
             if commit_stmt:
                 cmd += "commit retry 100;\nreturn [%s];" % (", ".join(node_map.values()))
-            print cmd
             cmd_list.append(cmd)
             node_map_full.update(node_map)
             
@@ -956,7 +961,6 @@ class QueryWrapper(object):
 
             if commit_stmt:
                 cmd += "\ncommit retry 100;"
-            print cmd
             cmd_list.append(cmd)
             
         return cmd_list

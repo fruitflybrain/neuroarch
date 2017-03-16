@@ -362,8 +362,8 @@ class Requires(Relationship):
 class QueryResult(Node):
     element_type = 'QueryResult'
     element_plural = 'QueryResults'
-    query = EmbeddedMap(nullable=False, unique=False, indexed=True)
-
+    tag =  String(nullable=False, unique=True, indexed=True)
+    
 class QueryOwns(Relationship):
     label = 'QueryOwns'
 
