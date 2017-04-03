@@ -123,7 +123,10 @@ class QueryWrapper(object):
     def from_tag(self, graph,tag):
         """
         """
-        QueryResultNode = QueryWrapper.from_objs(graph,graph.QueryResults.query(tag=tag).all())
+        obj = graph.QueryResults.query(tag=tag).all()
+        if not obj:
+            return {}
+        QueryResultNode = QueryWrapper.from_objs(graph,obj)
         output = {}
         output['metadata'] = QueryResultNode.get_as('df')[0].to_dict(orient='index').values()[0]
         for i in range(len(output['metadata']['pin'])):
