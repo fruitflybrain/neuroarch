@@ -13,7 +13,7 @@ import numbers
 
 from pyorient.ogm.declarative import declarative_node, \
     declarative_relationship
-from pyorient.ogm.property import EmbeddedMap, EmbeddedSet, String, EmbeddedList, Boolean
+from pyorient.ogm.property import EmbeddedMap, EmbeddedSet, String, EmbeddedList, Boolean, Integer
 import pyorient.otypes
 
 #import neuroarch.conv.pd as pd
@@ -167,6 +167,11 @@ class Cartridge(Circuit):
     element_plural = 'Cartridges'
     name = String(nullable=False, unique=False, indexed=True)
 
+class Glomerulus(Circuit):
+    element_type = 'Glomerulus'
+    element_plural = 'Glomeruli'
+    name = String(nullable=False, unique=False, indexed=True)
+
 class Column(Circuit):
     element_type = 'Column'
     element_plural = 'Columns'
@@ -182,6 +187,7 @@ class Synapse(BioNode):
     element_type = 'Synapse'
     element_plural = 'Synapses'
     name = String(nullable=False, unique=False, indexed=True)
+    N = Integer(nullable=True, unique=False, indexed=True)
 
 class GapJunction(BioNode):
     element_type = 'GapJunction'

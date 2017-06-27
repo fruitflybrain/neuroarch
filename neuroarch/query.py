@@ -1065,11 +1065,27 @@ class QueryWrapper(object):
         res = result_rids+rid_list
         return self.from_rids(self._graph, *res)
     
-    def post_synaptic_neurons(self):
-        return self.gen_traversal_out(['SendsTo', 'Synapse'],['SendsTo','Neuron'], min_depth=2)
+    def post_synaptic_neurons(self, N=None, rel='>'):
+        # N represents number of synapses
+        #    if N is none, will return all post synaptic neurons
+        #    else, it will only return postsynaptic neurons where the number of synapses
+        #    satisfy <rel> N. See below for rel
+        # rel can be '>'(default),'<','='
+        if N:
+            return self.gen_traversal_out(['SendsTo', 'Synapse',{'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
+        else:
+            return self.gen_traversal_out(['SendsTo', 'Synapse'],['SendsTo','Neuron'], min_depth=2)
     
-    def pre_synaptic_neurons(self):
-        return self.gen_traversal_in(['SendsTo', 'Synapse'],['SendsTo', 'Neuron'], min_depth=2)
+    def pre_synaptic_neurons(self, N=None, rel='>'):
+        # N represents number of synapses
+        #    if N is none, will return all post synaptic neurons
+        #    else, it will only return postsynaptic neurons where the number of synapses
+        #    satisfy <rel> N. See below for rel
+        # rel can be '>'(default),'<','='
+        if N:
+            return self.gen_traversal_in(['SendsTo', 'Synapse',{'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
+        else:
+            return self.gen_traversal_in(['SendsTo', 'Synapse'],['SendsTo', 'Neuron'], min_depth=2)
     
     def get_connecting_synapses(self):
         return self.gen_traversal_out(['SendsTo', 'Synapse'], min_depth=1) & \
@@ -1089,6 +1105,11 @@ class QueryWrapper(object):
         return self._gen_traversal('out', args, kwargs)
     
     def _gen_traversal(self, direction, args, kwargs):
+        '''
+            Args must be tuples or list of [edge_types, cls (optional), instanceof_or_cls (optional), 
+                                            Dict containing parameters to filter the nodes for this particular stage of traversal (optional)]
+                  or strings of only edge_types
+        '''
         assert len(args)>0
         class_list = self._graph.registry.keys()
         rid_list = self._records_to_list(self.nodes)
@@ -1108,29 +1129,60 @@ class QueryWrapper(object):
             max_depth = kwargs['max_depth']
         else:
             max_depth = len(args) + 1
-
+        
         for t, a in enumerate(args):
             a = _list_repr(a)
-            assert all(v in class_list for v in a[0:min(len(a),2)])
-            assert len(a) in (1, 2, 3), \
-                "Args must be tuples or list of [edge_types, cls (optional), instanceof_or_cls (optional)], or strings of only edge_types"
-            
+            assert len(a) in (1, 2, 3, 4), \
+                "Args must be tuples or list of [edge_types, cls (optional), instanceof_or_cls (optional)," +  \
+                "Dict containing parameters to filter the nodes for this particular stage of traversal (optional)], or strings of only edge_types"
+
+            arg_dict = {}
             if len(a)==3:
+                assert all(v in class_list for v in a[0:min(len(a),2)]), 'Invalid Relationship or Node class'
                 if a[2]=='instanceof':
-                    arg_dict = dict(zip(['edge_type', 'instanceof'], a)) 
-            else:
-                arg_dict = dict(zip(['edge_type', 'cls'], a)) 
+                    arg_dict['instanceof'] = a[1]
+                elif a[2]=='cls':
+                    arg_dict['cls'] = a[1]
+                else:
+                    arg_dict['cls'] = a[1]
+                    if isinstance(a[2],dict): arg_dict.update(a[2])
+            elif len(a)==4:
+                assert all(v in class_list for v in a[0:min(len(a),2)]), 'Invalid Relationship or Node class'
+                if a[2]=='instanceof':
+                    arg_dict['instanceof'] = a[1]
+                else:
+                    arg_dict['cls'] = a[1]
+                if isinstance(a[3],dict): arg_dict.update(a[3])
+            elif len(a) == 2:
+                if isinstance(a[1], dict):
+                    assert all(v in class_list for v in a[0:min(len(a),1)]), 'Invalid Relationship class'
+                    arg_dict.update(a[1])
+                else:
+                    assert all(v in class_list for v in a[0:min(len(a),2)]), 'Invalid Relationship or Node class'
+                    arg_dict['cls'] = a[1]
                 
             classes, attrs, depth, columns = _kwargs(arg_dict)
 
-            relationships = [direction + "('%s')" % (a if isinstance(a, basestring) else a[0]) for a in args[:t+1]]
+            attrs_query = ""
+            if attrs and classes:
+                attrs_query = " and (" + " and ".join(attrs) + ") "
+            elif (not classes) and attrs:
+                attrs_query = " where (" + " and ".join(attrs) + ") "
+  
+            #relationships = [direction + "('%s')" % (a if isinstance(a, basestring) else a[0]) for a in args[:t+1]]
+            relationships = [direction + "('%s')" % (x if isinstance(x, basestring) else x[0]) for x in args[t:t+1]]
+            
             var = '$q' + str(t+1)
-            q[var] = "%s = (select from (select expand(%s) from [%s]) %s)" % \
-                        (var, ".".join(relationships), ", ".join(rid_list), classes)
+
+            #q[var] = "%s = (select from (select expand(%s) from [%s]) %s)" % \
+            #            (var, ".".join(relationships), ", ".join(rid_list), classes)
+            q[var] = "%s = (select from (select expand(%s) from %s) %s %s)" % \
+                        (var, ".".join(relationships), '$q' + str(t), classes, attrs_query)
+            
             #dq[var] = "%s = (select from (select expand(%s) from (%s)) %s)" % \
             #            (var, ".".join(relationships),self._disp_query, classes)
         query = "select expand($q) let %s, $q = unionall(%s) " % \
-                (", ".join(q.values()[min_depth:max_depth]), ",".join(q.keys()[min_depth:max_depth]))
+                (", ".join(q.values()), ",".join(q.keys()[min_depth:max_depth]))
         disp_query = ""
         #disp_query = "select expand($q) let %s, $q = unionall(%s) " % \
         #        (", ".join(dq.values()[min_depth:max_depth]), ",".join(dq.keys()[min_depth:max_depth]))
@@ -1286,6 +1338,9 @@ def _kwargs(kwargs):
             else:
                 if len(v) == 1 and isinstance(v[0],(unicode,str)) and len(v[0])>=2 and v[0][:2] == '/r':
                     attrs.append("%s matches '%s'" % (k, v[0][2:]))
+                elif (len(v) ==2 and isinstance(v[0],(unicode,str)) and len(v[0]) 
+                and v[0] in ['<','>','=','<=','>=']):
+                    attrs.append("%s %s %s" % (k,v[0],v[1]))
                 else:
                     attrs.append("%s in %s" % (k, v))
     return classes, attrs, depth, columns
