@@ -726,7 +726,22 @@ class QueryWrapper(object):
                     (columns, ", ".join(rid_list), classes, attrs_query)
 
         return QueryWrapper(self._graph, QueryString(query, 'sql')).get_as(as_type)
-                    
+
+    def get_data_qw(self, as_type='df', **kwargs):
+        rid_list = self._records_to_list(self.nodes)
+        classes, attrs, depth, columns = _kwargs(kwargs)
+        attrs_query = ""  
+        if attrs and classes:
+            attrs_query = " and (" + " and ".join(attrs) + ") "
+        elif (not classes) and attrs:
+            attrs_query = " where (" + " and ".join(attrs) + ") "
+            
+        
+        query = "select %s from (select expand(out('HasData')) from [%s]) %s %s" % \
+                    (columns, ", ".join(rid_list), classes, attrs_query)
+
+        return QueryWrapper(self._graph, QueryString(query, 'sql'))
+    
     def query(self, **kwargs):
         self.has(**kwargs)
         

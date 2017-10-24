@@ -182,7 +182,10 @@ class Neuron(BioNode):
     element_plural = 'Neurons'
     name = String(nullable=False, unique=False, indexed=True)
     locality = Boolean(nullable=True, unique=False, indexed=True)
-    
+    label = String(nullable=True, unique=False, indexed=True)
+    uname = String(nullable=True, unique=True, indexed=True)
+    synonyms = EmbeddedList(nullable=True, unique=False, indexed=True)
+
 class Synapse(BioNode):
     element_type = 'Synapse'
     element_plural = 'Synapses'
@@ -211,13 +214,14 @@ class ArborizationData(BioNode):
 
 class GeneticData(BioNode):
     element_type = 'GeneticData'
-    element_plural = 'GeneticsDatas'
+    element_plural = 'GeneticDatas'
     name = String(nullable=False, unique=False, indexed=True)
 
 class MorphologyData(BioNode):
     element_type = 'MorphologyData'
     element_plural = 'MorphologyDatas'
     name = String(nullable=False, unique=False, indexed=True)
+    morph_type = String(nullable=True, unique=False, indexed=True)
 
 class NeurotransmitterData(BioNode):
     element_type = 'NeurotransmitterData'
