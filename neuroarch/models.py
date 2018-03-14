@@ -135,6 +135,7 @@ class DataSource(BioNode):
     element_type = 'DataSource'
     element_plural = 'DataSources'
     name = String(nullable=False, unique=False, indexed=True)
+    description = String(nullable=True, unique=False, indexed=False)
 
 class Neuropil(BioNode):
     element_type = 'Neuropil'
@@ -182,13 +183,22 @@ class Neuron(BioNode):
     element_plural = 'Neurons'
     name = String(nullable=False, unique=False, indexed=True)
     locality = Boolean(nullable=True, unique=False, indexed=True)
-    
+    label = String(nullable=True, unique=False, indexed=True)
+    uname = String(nullable=True, unique=False, indexed=True)
+    synonyms = EmbeddedList(nullable=True, unique=False, indexed=True)
+
 class Synapse(BioNode):
     element_type = 'Synapse'
     element_plural = 'Synapses'
     name = String(nullable=False, unique=False, indexed=True)
     N = Integer(nullable=True, unique=False, indexed=True)
 
+class InferredSynapse(BioNode):
+    element_type = 'InferredSynapse'
+    element_plural = 'InferredSynapses'
+    name = String(nullable=False, unique=False, indexed=True)
+    N = Integer(nullable=True, unique=False, indexed=True)
+    
 class GapJunction(BioNode):
     element_type = 'GapJunction'
     element_plural = 'GapJunctions'
@@ -211,13 +221,14 @@ class ArborizationData(BioNode):
 
 class GeneticData(BioNode):
     element_type = 'GeneticData'
-    element_plural = 'GeneticsDatas'
+    element_plural = 'GeneticDatas'
     name = String(nullable=False, unique=False, indexed=True)
 
 class MorphologyData(BioNode):
     element_type = 'MorphologyData'
     element_plural = 'MorphologyDatas'
     name = String(nullable=False, unique=False, indexed=True)
+    morph_type = String(nullable=True, unique=False, indexed=True)
 
 class NeurotransmitterData(BioNode):
     element_type = 'NeurotransmitterData'

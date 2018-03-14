@@ -726,7 +726,22 @@ class QueryWrapper(object):
                     (columns, ", ".join(rid_list), classes, attrs_query)
 
         return QueryWrapper(self._graph, QueryString(query, 'sql')).get_as(as_type)
-                    
+
+    def get_data_qw(self, as_type='df', **kwargs):
+        rid_list = self._records_to_list(self.nodes)
+        classes, attrs, depth, columns = _kwargs(kwargs)
+        attrs_query = ""  
+        if attrs and classes:
+            attrs_query = " and (" + " and ".join(attrs) + ") "
+        elif (not classes) and attrs:
+            attrs_query = " where (" + " and ".join(attrs) + ") "
+            
+        
+        query = "select %s from (select expand(out('HasData')) from [%s]) %s %s" % \
+                    (columns, ", ".join(rid_list), classes, attrs_query)
+
+        return QueryWrapper(self._graph, QueryString(query, 'sql'))
+    
     def query(self, **kwargs):
         self.has(**kwargs)
         
@@ -1065,32 +1080,49 @@ class QueryWrapper(object):
         res = result_rids+rid_list
         return self.from_rids(self._graph, *res)
     
-    def post_synaptic_neurons(self, N=None, rel='>'):
+    def post_synaptic_neurons(self, N=None, rel='>', include_inferred=True):
         # N represents number of synapses
         #    if N is none, will return all post synaptic neurons
         #    else, it will only return postsynaptic neurons where the number of synapses
         #    satisfy <rel> N. See below for rel
         # rel can be '>'(default),'<','='
+        synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
         if N:
-            return self.gen_traversal_out(['SendsTo', 'Synapse',{'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
+            return self.gen_traversal_out(['SendsTo', synapse_classes, {'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
         else:
-            return self.gen_traversal_out(['SendsTo', 'Synapse'],['SendsTo','Neuron'], min_depth=2)
+            return self.gen_traversal_out(['SendsTo', synapse_classes],['SendsTo','Neuron'], min_depth=2)
     
-    def pre_synaptic_neurons(self, N=None, rel='>'):
+    def pre_synaptic_neurons(self, N=None, rel='>', include_inferred=True):
         # N represents number of synapses
         #    if N is none, will return all post synaptic neurons
         #    else, it will only return postsynaptic neurons where the number of synapses
         #    satisfy <rel> N. See below for rel
         # rel can be '>'(default),'<','='
+        synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
         if N:
-            return self.gen_traversal_in(['SendsTo', 'Synapse',{'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
+            return self.gen_traversal_in(['SendsTo', synapse_classes,{'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
         else:
-            return self.gen_traversal_in(['SendsTo', 'Synapse'],['SendsTo', 'Neuron'], min_depth=2)
+            return self.gen_traversal_in(['SendsTo', synapse_classes],['SendsTo', 'Neuron'], min_depth=2)
     
-    def get_connecting_synapses(self):
-        return self.gen_traversal_out(['SendsTo', 'Synapse'], min_depth=1) & \
-                self.gen_traversal_in(['SendsTo', 'Synapse'], min_depth=1)
+    def get_connecting_synapses(self, N=None, rel='>',include_inferred=True):
+        synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
+        if N:
+            return self.gen_traversal_out(['SendsTo', synapse_classes, {'N':(rel,N)}], min_depth=1) & \
+                self.gen_traversal_in(['SendsTo', synapse_classes, {'N':(rel,N)}], min_depth=1)
+        else:
+            return self.gen_traversal_out(['SendsTo', synapse_classes], min_depth=1) & \
+                self.gen_traversal_in(['SendsTo', synapse_classes], min_depth=1)
 
+    def add_connecting_synapses(self, N=None, rel='>',include_inferred=True):
+        synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
+        if N:
+            return self + (self.gen_traversal_out(['SendsTo', synapse_classes, {'N':(rel,N)}], min_depth=1) & \
+                self.gen_traversal_in(['SendsTo', synapse_classes, {'N':(rel,N)}], min_depth=1))
+        else:
+            return self + (self.gen_traversal_out(['SendsTo', synapse_classes], min_depth=1) & \
+                self.gen_traversal_in(['SendsTo', synapse_classes], min_depth=1))
+    
+        
     def get_connecting_synapsemodels(self):
         return self.gen_traversal_out(['SendsTo', 'SynapseModel','instanceof'], min_depth=1) & \
                 self.gen_traversal_in(['SendsTo', 'SynapseModel','instanceof'], min_depth=1)
@@ -1138,7 +1170,11 @@ class QueryWrapper(object):
 
             arg_dict = {}
             if len(a)==3:
-                assert all(v in class_list for v in a[0:min(len(a),2)]), 'Invalid Relationship or Node class'
+                for v in a[0:min(len(a), 2)]:
+                    if isinstance(v, list) or isinstance(v, tuple):
+                        assert all(vv in class_list for vv in v), 'Invalid Relationship or Node class'
+                    else:
+                        assert(v in class_list), 'Invalid Relationship or Node class'
                 if a[2]=='instanceof':
                     arg_dict['instanceof'] = a[1]
                 elif a[2]=='cls':
@@ -1147,7 +1183,11 @@ class QueryWrapper(object):
                     arg_dict['cls'] = a[1]
                     if isinstance(a[2],dict): arg_dict.update(a[2])
             elif len(a)==4:
-                assert all(v in class_list for v in a[0:min(len(a),2)]), 'Invalid Relationship or Node class'
+                for v in a[0:min(len(a), 2)]:
+                    if isinstance(v, list) or isinstance(v, tuple):
+                        assert all(vv in class_list for vv in v), 'Invalid Relationship or Node class'
+                    else:
+                        assert(v in class_list), 'Invalid Relationship or Node class'
                 if a[2]=='instanceof':
                     arg_dict['instanceof'] = a[1]
                 else:
@@ -1158,7 +1198,11 @@ class QueryWrapper(object):
                     assert all(v in class_list for v in a[0:min(len(a),1)]), 'Invalid Relationship class'
                     arg_dict.update(a[1])
                 else:
-                    assert all(v in class_list for v in a[0:min(len(a),2)]), 'Invalid Relationship or Node class'
+                    for v in a[0:min(len(a), 2)]:
+                        if isinstance(v, list) or isinstance(v, tuple):
+                            assert all(vv in class_list for vv in v), 'Invalid Relationship or Node class'
+                        else:
+                            assert(v in class_list), 'Invalid Relationship or Node class'
                     arg_dict['cls'] = a[1]
                 
             classes, attrs, depth, columns = _kwargs(arg_dict)
