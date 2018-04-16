@@ -192,6 +192,7 @@ class Synapse(BioNode):
     element_plural = 'Synapses'
     name = String(nullable=False, unique=False, indexed=True)
     N = Integer(nullable=True, unique=False, indexed=True)
+    uname = String(nullable=True, unique=False, indexed=True)
 
 class InferredSynapse(BioNode):
     element_type = 'InferredSynapse'
@@ -218,7 +219,8 @@ class ArborizationData(BioNode):
     dendrites = EmbeddedMap(nullable=True, unique=False, indexed=True)
     axons = EmbeddedMap(nullable=True, unique=False, indexed=True)
     name = String(nullable=True, unique=False, indexed=True)
-
+    uname = String(nullable=True, unique=False, indexed=True)
+        
 class GeneticData(BioNode):
     element_type = 'GeneticData'
     element_plural = 'GeneticDatas'
@@ -229,6 +231,14 @@ class MorphologyData(BioNode):
     element_plural = 'MorphologyDatas'
     name = String(nullable=False, unique=False, indexed=True)
     morph_type = String(nullable=True, unique=False, indexed=True)
+    uname = String(nullable=True, unique=False, indexed=True)
+    x = EmbeddedList(nullable=True, unique=False, indexed=False)
+    y = EmbeddedList(nullable=True, unique=False, indexed=False)
+    z = EmbeddedList(nullable=True, unique=False, indexed=False)
+    r = EmbeddedList(nullable=True, unique=False, indexed=False)
+    parent = EmbeddedList(nullable=True, unique=False, indexed=False)
+    identifier = EmbeddedList(nullable=True, unique=False, indexed=False)
+    sample = EmbeddedList(nullable=True, unique=False, indexed=False)
 
 class NeurotransmitterData(BioNode):
     element_type = 'NeurotransmitterData'
