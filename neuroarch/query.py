@@ -133,7 +133,7 @@ class QueryWrapper(object):
             output['metadata']['pin'][i] = '#' + ":".join(map(str,output['metadata']['pin'][i][1:]))
         output['qw'] = QueryResultNode.gen_traversal_out(['HasQueryResults'],min_depth=1)
         return output
-        
+
     @classmethod
     def from_rids(cls, graph, *rid_list):
         """
@@ -185,7 +185,7 @@ class QueryWrapper(object):
     @classmethod
     def _records_to_list(cls, records):
         return [r._rid for r in records]
-    
+
     def get_as(self, as_type='df', force_rid=False):
         """
         Return view of query results.
@@ -214,8 +214,8 @@ class QueryWrapper(object):
         if as_type=='obj':
             return self._graph.elements_from_records(self.nodes),\
                 self._graph.elements_from_records(self.edges)
-        raise UnsupportedView(as_type) 
-                
+        raise UnsupportedView(as_type)
+
     @property
     def executed(self):
         """
@@ -292,11 +292,14 @@ class QueryWrapper(object):
             self.execute()
         return map(self._graph.get_element, self._edges)
 
+    def __nonzero__(self):
+        return True if self._nodes else False
+
     def __repr__(self):
         return ('QueryWrapper\n------------\n'
                 'Nodes: [%i]\n'
                 'Edges: [%i]\n') % (len(self._nodes), len(self._edges))
-        
+
     def _execute_query(self, q):
         """
         Return results of a single OrientDB query string.
@@ -310,10 +313,10 @@ class QueryWrapper(object):
         else:
             raise UnsupportedQueryLanguage(q.lang)
         return result
-        
+
     def _edge_query_from_node_query(self, node_query, edge_class=''):
         """
-        Return query string that can retrieve edges between nodes selected by specified query string.        
+        Return query string that can retrieve edges between nodes selected by specified query string.
 
         Parameters
         ----------
@@ -403,7 +406,7 @@ class QueryWrapper(object):
             batch[str(i)] = batch.query_owns.create(query_result_node,
                                                     self._graph.get_element(rid))
         batch.commit(retries)
-        
+
 
 
     @staticmethod
@@ -436,7 +439,7 @@ class QueryWrapper(object):
                  queryObj=obj
             else:
                 queryObj=queryObj+obj
-        return queryObj.traverse_owned_by_get_toplevel() 
+        return queryObj.traverse_owned_by_get_toplevel()
 
 
     def execute(self, edges=False, force=False, connect=False):
@@ -499,8 +502,8 @@ class QueryWrapper(object):
         self._executed = False
 
         # XXX what should be done with the query_result node in the db?
-        
-        
+
+
     def owns(self, levels=1, **kwargs):
         """
         Retrieve all nodes at a specified number of levels below the current query.
@@ -518,7 +521,7 @@ class QueryWrapper(object):
         result : QueryWrapper
             Query containing requested nodes.
         """
-        
+
         return self._own('out', levels, kwargs)
 
     def owned_by(self, levels=1, **kwargs):
@@ -538,15 +541,15 @@ class QueryWrapper(object):
         result : QueryWrapper
             Query containing requested nodes.
         """
-        
+
         return self._own('in', levels, kwargs)
-    
+
     def _own(self, direction, levels, kwargs):
         assert isinstance(levels, numbers.Integral) and levels >= 1
-            
-        rid_list = self._records_to_list(self.nodes)        
+
+        rid_list = self._records_to_list(self.nodes)
         classes, attrs, depth, columns = _kwargs(kwargs)
-            
+
         relationships = ["%s('owns')" % direction]*levels
         query = "select %s from (select expand(%s) from [%s]) %s" % \
                     (columns, '.'.join(relationships), ", ".join(rid_list), classes)
@@ -556,7 +559,7 @@ class QueryWrapper(object):
         '''
         disp_query = ''
         return self.__class__(self._graph, QueryString(query,"sql"), disp_query=disp_query)
-    
+
     def find_matching_ports_from_selector(self, other):
         try:
             other_df = other.get_as('df')[0][['selector']].to_dict(orient='index').values()
@@ -565,7 +568,7 @@ class QueryWrapper(object):
             other_df = []
             sels = []
         return self.traverse_owns(selector=sels)
-    
+
     def traverse_owns(self, **kwargs):
         """
         Retrieve all traversed nodes down to a specified number of levels below the current query.
@@ -577,15 +580,15 @@ class QueryWrapper(object):
             be retrieved.
         cls : str or iterable
             Node class or classes to retrieve.
-        
+
         Returns
         -------
         result : QueryWrapper
             Query containing requested nodes.
         """
-            
+
         return self._traverse('out', kwargs)
-            
+
     def traverse_owned_by(self, **kwargs):
         """
         Retrieve all traversed nodes up to a specified number of levels above the current query.
@@ -597,20 +600,20 @@ class QueryWrapper(object):
             be retrieved.
         cls : str or iterable
             Node class or classes to retrieve.
-        
+
         Returns
         -------
         result : QueryWrapper
             Query containing requested nodes.
         """
-        
+
         return self._traverse('in', kwargs)
-    
+
     def _traverse(self, direction, kwargs):
         if not 'max_levels' in kwargs:
             kwargs['max_levels']=10
-            
-        rid_list = self._records_to_list(self.nodes)        
+
+        rid_list = self._records_to_list(self.nodes)
         classes, attrs, depth, columns = _kwargs(kwargs)
 
         attrs_query = ""
@@ -618,7 +621,7 @@ class QueryWrapper(object):
             attrs_query = " and (" + " and ".join(attrs) + ") "
         elif (not classes) and attrs:
             attrs_query = " where (" + " and ".join(attrs) + ") "
-  
+
 
         query = "select %s from (traverse %s('owns') from [%s] %s) %s %s" %\
                 (columns, direction, ", ".join(rid_list), depth, classes, attrs_query)
@@ -628,20 +631,20 @@ class QueryWrapper(object):
         '''
         disp_query = ''
         return self.__class__(self._graph, QueryString(query, "sql"), disp_query=disp_query)
-    
+
     '''
     def traverse_owned_by_get_toplevel(self):
         """
         Find associated LPU or Pattern that of the nodes encompassed by a query object.
-        
+
         Returns
         -------
-        result : dict 
+        result : dict
             QueryWrappers broken out by LPU/Pattern containing nodes of the origin query
         """
         toplevel = dict()
         rid_list = self._records_to_list(self.nodes)
-        
+
         for c in ('LPU', 'Pattern'):
             obj=self.traverse_owned_by(cls=c, max_levels=10)
             if c not in toplevel:
@@ -657,7 +660,7 @@ class QueryWrapper(object):
                 if n.name not in toplevel['LPU']:
                     toplevel[c][n.name]=set()
                 toplevel[c][n.name] |= obj_rid_list
-        
+
         for key, v in toplevel.items():
             for name, rids in v.items():
                 toplevel[key][name] = self.from_rids(self._graph, *rids)
@@ -667,15 +670,15 @@ class QueryWrapper(object):
     def traverse_owned_by_get_toplevel(self):
         """
         Find associated LPU or Pattern that of the nodes encompassed by a query object.
-        
+
         Returns
         -------
-        result : dict 
+        result : dict
             QueryWrappers broken out by LPU/Pattern containing nodes of the origin query
         """
         toplevel = dict()
         rid_list = self._records_to_list(self.nodes)
-        
+
         for c in ('LPU', 'Pattern'):
             obj=self.traverse_owned_by(cls=c, max_levels=10)
             if c not in toplevel:
@@ -684,10 +687,10 @@ class QueryWrapper(object):
                 query = "select expand($c) let $a=(select from (traverse out('owns') from %s while $depth <= 10))" % (n._id)
                 query += ", $b=(select from [%s]), $c=intersect($a,$b)" % (", ".join(rid_list))
                 toplevel[c][n.name] = self.__class__(self._graph, QueryString(query,'sql'))
-                
+
 
         return toplevel
-    
+
 
     def get_data_rids(self, as_type='df', **kwargs):
         rid_list = self._records_to_list(self.nodes)
@@ -711,17 +714,17 @@ class QueryWrapper(object):
         else:
             res = [record.oRecordData['rid'].get_hash() for record in res]
         return res
-    
+
     def get_data(self, as_type='df', **kwargs):
         rid_list = self._records_to_list(self.nodes)
         classes, attrs, depth, columns = _kwargs(kwargs)
-        attrs_query = ""  
+        attrs_query = ""
         if attrs and classes:
             attrs_query = " and (" + " and ".join(attrs) + ") "
         elif (not classes) and attrs:
             attrs_query = " where (" + " and ".join(attrs) + ") "
-            
-        
+
+
         query = "select %s from (select expand(out('HasData')) from [%s]) %s %s" % \
                     (columns, ", ".join(rid_list), classes, attrs_query)
 
@@ -730,29 +733,29 @@ class QueryWrapper(object):
     def get_data_qw(self, as_type='df', **kwargs):
         rid_list = self._records_to_list(self.nodes)
         classes, attrs, depth, columns = _kwargs(kwargs)
-        attrs_query = ""  
+        attrs_query = ""
         if attrs and classes:
             attrs_query = " and (" + " and ".join(attrs) + ") "
         elif (not classes) and attrs:
             attrs_query = " where (" + " and ".join(attrs) + ") "
-            
-        
+
+
         query = "select %s from (select expand(out('HasData')) from [%s]) %s %s" % \
                     (columns, ", ".join(rid_list), classes, attrs_query)
 
         return QueryWrapper(self._graph, QueryString(query, 'sql'))
-    
+
     def query(self, **kwargs):
         self.has(**kwargs)
-        
+
     def has(self, **kwargs):
         if not kwargs:
             return self
-        
+
         q={}
         rid_list = self._records_to_list(self.nodes)
         classes, attrs, depth, columns = _kwargs(kwargs)
-            
+
         q_str = "{var} = (select expand(rid) from (select distinct(traversedvertex(0)) as rid \
                 from (traverse out('Models'), out('HasData') from (select from [{rids}] {classes}) \
                 while $depth <= 2) {filters}))"
@@ -769,7 +772,7 @@ class QueryWrapper(object):
         else:
             q['$q'] = q_str.format(var = var, rids = ", ".join(rid_list), classes = classes, filters = "")
             #dq['$q'] = dq_str.format(var = var, disp_query = self._disp_query, classes = classes, filters = "")
-            
+
         query = "select %s from (select expand($a) let %s, $a = intersect(%s))" % \
                     (columns, ", ".join(q.values()), ", ".join(q.keys()) )
         '''
@@ -779,8 +782,8 @@ class QueryWrapper(object):
         disp_query = ''
         #print disp_query
         return self.__class__(self._graph, QueryString(query,"sql"), disp_query=disp_query)
-    
-        
+
+
     def _check_tags(self, tag):
         query = "select tag from QueryResult where tag = '%s'" % tag
         #print query
@@ -798,9 +801,9 @@ class QueryWrapper(object):
         kwargs['tag'] = tag
         self._graph.client.command('update %s content %s where @rid = %s' % \
                                      (qr.element_type, json.dumps(kwargs), qr._id))
-        
+
         cmd = ['begin']
-        
+
         # create tag node
         #set_cmd = ["%s = %s" % (k, v.__repr__()) for k, v in kwargs.items()]
         #if set_cmd:
@@ -810,41 +813,41 @@ class QueryWrapper(object):
         #let_cmd = "let v = CREATE VERTEX QueryResult SET tag = '%s', permanent = %s, created_timestamp = sysdate() %s" % \
         #            (tag, permanent_flag, ", ".join(set_cmd))
         #cmd.append(let_cmd)
-        
+
         # create edges from tag node to query nodes
         for i, node in enumerate(self._nodes):
             edge_cmd = "let e%s = CREATE EDGE HasQueryResults FROM %s TO %s" % (i, qr._id, node)
             cmd.append(edge_cmd)
-        
+
         cmd.append("commit retry 10;\nreturn $v;")
         results = self._graph.client.batch(";\n".join(cmd))
         return 1
         #return self.from_rids(self._graph, *self._records_to_list(results))
-        
+
     def tag_clean_up(self, older_than):
         cmd = "begin; DELETE VERTEX QueryResults WHERE permanent=False and created_timestamp <= DATE(%s); commit retry 10;" % \
                 (older_than)
         results = self._graph.client.batch(cmd)
-        
+
     def _get_node_num(self, node_name, node_class):
         col_name = re.sub('[#0-9]', '', node_name)
         query = "select max(name.replace('%s', '').asInteger()) from %s where name like '%s%'" % \
                 (col_name, node_class, col_name)
         res = self._graph.client.command(query)
         return res[0].oRecordData['max']
-    
+
     def _get_subgraphs(self, edge_types=None, max_levels=10, max_node_cls=None, cls=None):
         return self._get_graphs('out', edge_types, max_levels, max_node_cls, cls)
-    
+
     def _get_supgraphs(self, edge_types=None, max_levels=10, max_node_cls=None, cls=None):
         return self._get_graphs('in', edge_types, max_levels, max_node_cls, cls)
-    
-    def _get_graphs(self, direction, edge_types=None, max_levels=10, max_node_cls=None, cls=None): 
+
+    def _get_graphs(self, direction, edge_types=None, max_levels=10, max_node_cls=None, cls=None):
         rid_list = self._records_to_list(self.nodes)
         class_list = self._graph.registry.keys()
 
         assert isinstance(max_levels, numbers.Integral) and max_levels >= 0
-        
+
         if cls:
             assert cls in class_list
             cls = _list_repr(cls)
@@ -854,17 +857,17 @@ class QueryWrapper(object):
 
         if edge_types:
             edge_types = _list_repr(edge_types)
-            assert all(e in class_list for e in edge_types)        
-            relationships = ["%s('%s')" % (direction, e) for e in edge_types]        
+            assert all(e in class_list for e in edge_types)
+            relationships = ["%s('%s')" % (direction, e) for e in edge_types]
         else:
             relationships = ["in()"]
-            
+
         if max_node_cls:
             assert max_node_cls in class_list
-            while_classes = "and @class <> '%s'" % max_node_cls 
+            while_classes = "and @class <> '%s'" % max_node_cls
         else:
             while_classes = ""
-                    
+
         query = "select from (traverse %s from [%s] while $depth<=%s %s) %s" % \
                 (", ".join(relationships), ", ".join(rid_list), max_levels, while_classes, where_classes)
         disp_query = ''
@@ -872,17 +875,17 @@ class QueryWrapper(object):
         disp_query = "select from (traverse %s from (%s) while $depth<=%s %s) %s" % \
                 (", ".join(relationships), self._disp_query, max_levels, while_classes, where_classes)
         '''
-        
+
         return self.__class__(self._graph, QueryString(query, "sql"), disp_query=disp_query)
-    
+
     def _get_in_edges(self, rid, edge_types):
         in_relationships = ["in('%s') as %s" % (e, e) for e in edge_types]
-        
+
         if isinstance(rid, basestring):
             rids = [rid]
         query = "select @RID as rid, %s from %s " % (", ".join(in_relationships), ", ".join(rids))
-        
-        
+
+
         records = self._graph.client.command(query)
         in_edges = dict()
         for r in records:
@@ -891,25 +894,25 @@ class QueryWrapper(object):
                 in_edges[rid_hash] = dict()
             for edge in edge_types:
                 in_edges[rid_hash][edge] = [e.get_hash() for e in r.oRecordData[edge]]
-        
+
         return in_edges
-        
+
     def _in_edges_command(self, to_from_records, edge_types):
         edge_in = "let f{num} = CREATE EDGE {edge_type} from {from_nodes} to {to_node}"
         in_cmd = []
-        
+
         for i, (to_rid, from_rid) in enumerate(to_from_records):
             in_edges = self._get_in_edges(to_rid, edge_types)
             for n, edge_type in enumerate(edge_types):
                 from_nodes = in_edges[to_rid][edge_type]
                 if from_nodes:
-                    in_cmd.append(edge_in.format(to_node = to_rid, from_nodes = from_rid, 
+                    in_cmd.append(edge_in.format(to_node = to_rid, from_nodes = from_rid,
                                                   num = len(to_from_records) * i + n , edge_type = edge_type))
         return in_cmd
-    
+
     def _rename_nodes(self, func, rid_list, cmd):
         max_node_num = dict()
-        
+
         # rename new top-level nodes
         for i, rid in enumerate(rid_list):
             node = self._nodes[rid]
@@ -924,25 +927,25 @@ class QueryWrapper(object):
             new_name = node_name + str(max_node_num[node_name])
             cmd = cmd.replace(old_name, new_name)
         return cmd
-    
+
     def _copy_graph_command(self, edge_types=None):
         node_cmd, node_map = self._copy_node_command(commit_stmt=False)
         edge_cmd = self._copy_edge_command(node_map, edge_types=None, commit_stmt=False)
-        
+
         cmd = 'begin;\n' + "".join(node_cmd) + "".join(edge_cmd) + ";\ncommit retry 100;\nreturn [%s];" % (", ".join(node_map.values()))
         return cmd, node_map
-    
-    
+
+
     def _copy_node_command(self, commit_stmt=False, N=20):
         node_map_full = dict()
         cmd_list = []
         num = 0
-        
+
         # batch commands for nodes
         for chunk in chunks(self._nodes.items(), N):
             node_map = dict()
             cmd = []
-            
+
             for rid, node in chunk:
                 set_cmd = ["%s = %s" % (k, v.__repr__()) for k, v in node.oRecordData.iteritems() \
                            if isinstance(v, (basestring, numbers.Number))]
@@ -950,20 +953,20 @@ class QueryWrapper(object):
                 node_map[rid] = '$v%s' % num
                 cmd.append(let_cmd + ", ".join(set_cmd))
                 num += 1
-        
+
             cmd = ";\n".join(cmd) + ";\n"
-        
+
             if commit_stmt:
                 cmd += "commit retry 100;\nreturn [%s];" % (", ".join(node_map.values()))
             cmd_list.append(cmd)
             node_map_full.update(node_map)
-            
+
         return cmd_list, node_map_full
-    
+
     def _copy_edge_command(self, node_map, edge_types=None, commit_stmt=False, N=20):
         cmd_list = []
         num = 0
-        
+
         # batch commands for edges, given node variables
         for chunk in chunks(self.edges, N):
             cmd = []
@@ -971,7 +974,7 @@ class QueryWrapper(object):
                 edge_cmd = "let e%s = CREATE EDGE %s from %s to %s" % \
                                     (num, edge._class, node_map[edge._out.__str__()], node_map[edge._in.__str__()])
                 if edge_types:
-                    if edge._class in edge_types:                    
+                    if edge._class in edge_types:
                         cmd.append(edge_cmd)
                 else:
                     cmd.append(edge_cmd)
@@ -982,34 +985,34 @@ class QueryWrapper(object):
             if commit_stmt:
                 cmd += "\ncommit retry 100;"
             cmd_list.append(cmd)
-            
+
         return cmd_list
-        
+
     def copy_models(self, func, in_flag, copies=1000):
         edge_types = ['Owns', 'SendsTo', 'HasData']
         rid_list = self._records_to_list(self.nodes)
         data = self._get_subgraphs(edge_types)
         results = list()
-        
+
         for c in range(copies):
             cmd, node_map = data._copy_graph_command(edge_types)
             cmd  = self._rename_nodes(func, rid_list, cmd)
-            
+
             # create in edges to subgraph if in_flag=True
             if in_flag:
                 in_cmd = self._in_edges_command(zip(rid_list, [node_map[r] for r in rid_list]), edge_types)
                 cmd = cmd.replace(";\ncommit", ";\n" + ";\n".join(in_cmd) + ";\ncommit")
             results += self._graph.client.batch(cmd)
             #print cmd + '\nNew records committed to database'
-            
+
         return self.from_rids(self._graph, *self._records_to_list(results))
-    
+
     @staticmethod
     def _remove_edges_by_node(df, del_nodes):
         del_filter = (~df['in'].isin(del_nodes)) & (~df['out'].isin(del_nodes))
         return df[del_filter]
-        
-    
+
+
     def _diff(self, new_df_nodes, new_df_edges, full_replace, node_map={}):
         old_df_nodes, old_df_edges = self.get_as()
 
@@ -1021,24 +1024,24 @@ class QueryWrapper(object):
                 new_df_edges[direction] = new_df_edges[direction].map(lambda x: node_map[x])
 
         d_n = diff_nodes(old_df_nodes, new_df_nodes, full_replace)
-        
+
         # filter out edges related to nodes that will be deleted
         del_nodes = d_n['del'].keys()
         old_df_edges_filter = self._remove_edges_by_node(old_df_edges, del_nodes)
         new_df_edges_filter = self._remove_edges_by_node(new_df_edges, del_nodes)
-        
+
         d_e = diff_edges(old_df_edges_filter, new_df_edges_filter, full_replace)
         rid_list = apply_node_diff(self._graph.client, d_n)
         edge_rid_list = apply_edge_diff(self._graph.client, d_e)
         return rid_list
-    
+
     def diff_save(self, new_df_nodes, new_df_edges, full_replace=False):
         rid_list = self._diff(new_df_nodes, new_df_edges, full_replace)
         return self.from_rids(self._graph, *rid_list)
-    
+
     def diff_save_as(self, new_df_nodes, new_df_edges, **kwargs):
         class_list = self._graph.registry.keys()
-        
+
         if 'max_levels_in' in kwargs:
             assert isinstance(kwargs['max_levels_in'], numbers.Integral) and kwargs['max_levels_in'] >= 0
         else:
@@ -1055,18 +1058,18 @@ class QueryWrapper(object):
         else:
             kwargs['max_node_cls'] = None
 
-        # copy graph 
-        q1 = self._get_supgraphs(max_levels=kwargs['max_levels_in'], max_node_cls=kwargs['max_node_cls']) 
-        q2 = self._get_subgraphs(max_levels=kwargs['max_levels_out']) 
+        # copy graph
+        q1 = self._get_supgraphs(max_levels=kwargs['max_levels_in'], max_node_cls=kwargs['max_node_cls'])
+        q2 = self._get_subgraphs(max_levels=kwargs['max_levels_out'])
         q = q1 + q2
-        
+
         # commit copy of nodes to database
         result_rids = []
         node_cmd_list, node_map = self._copy_node_command(commit_stmt=True)
         for node_cmd in node_cmd_list:
             results = self._graph.client.batch("begin;\n" + node_cmd)
             result_rids += [r._rid for r in results]
-        
+
         # map old nodes to newly created nodes
         node_to_node_map = {k: v for k, v in zip(node_map.keys(), result_rids)}
 
@@ -1074,12 +1077,12 @@ class QueryWrapper(object):
         edge_cmd_list = self._copy_edge_command(node_to_node_map, commit_stmt=True)
         for edge_cmd in edge_cmd_list:
             self._graph.client.batch("begin;\n" + edge_cmd)
-        
+
         # take diff, map to new nodes in db
         rid_list = self._diff(new_df_nodes, new_df_edges, full_replace = True, node_map = node_to_node_map)
         res = result_rids+rid_list
         return self.from_rids(self._graph, *res)
-    
+
     def post_synaptic_neurons(self, N=None, rel='>', include_inferred=True):
         # N represents number of synapses
         #    if N is none, will return all post synaptic neurons
@@ -1091,7 +1094,7 @@ class QueryWrapper(object):
             return self.gen_traversal_out(['SendsTo', synapse_classes, {'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
         else:
             return self.gen_traversal_out(['SendsTo', synapse_classes],['SendsTo','Neuron'], min_depth=2)
-    
+
     def pre_synaptic_neurons(self, N=None, rel='>', include_inferred=True):
         # N represents number of synapses
         #    if N is none, will return all post synaptic neurons
@@ -1103,7 +1106,7 @@ class QueryWrapper(object):
             return self.gen_traversal_in(['SendsTo', synapse_classes,{'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
         else:
             return self.gen_traversal_in(['SendsTo', synapse_classes],['SendsTo', 'Neuron'], min_depth=2)
-    
+
     def get_connecting_synapses(self, N=None, rel='>',include_inferred=True):
         synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
         if N:
@@ -1121,12 +1124,12 @@ class QueryWrapper(object):
         else:
             return self + (self.gen_traversal_out(['SendsTo', synapse_classes], min_depth=1) & \
                 self.gen_traversal_in(['SendsTo', synapse_classes], min_depth=1))
-    
-        
+
+
     def get_connecting_synapsemodels(self):
         return self.gen_traversal_out(['SendsTo', 'SynapseModel','instanceof'], min_depth=1) & \
                 self.gen_traversal_in(['SendsTo', 'SynapseModel','instanceof'], min_depth=1)
-   
+
     def get_connected_ports(self):
         return self.gen_traversal_out(['SendsTo', 'Port']) + self.gen_traversal_in(['SendsTo', 'Port'])
 
@@ -1135,10 +1138,10 @@ class QueryWrapper(object):
 
     def gen_traversal_out(self, *args, **kwargs):
         return self._gen_traversal('out', args, kwargs)
-    
+
     def _gen_traversal(self, direction, args, kwargs):
         '''
-            Args must be tuples or list of [edge_types, cls (optional), instanceof_or_cls (optional), 
+            Args must be tuples or list of [edge_types, cls (optional), instanceof_or_cls (optional),
                                             Dict containing parameters to filter the nodes for this particular stage of traversal (optional)]
                   or strings of only edge_types
         '''
@@ -1149,19 +1152,19 @@ class QueryWrapper(object):
         dq = {}
         q['$q0'] = "$q0 = (select from [%s])" % ", ".join(rid_list)
         #dq['$q0'] = "$q0 = (select from (%s))" % self._disp_query
-        
+
         if 'min_depth' in kwargs:
             assert isinstance(kwargs['min_depth'], numbers.Integral)
             min_depth = kwargs['min_depth']
         else:
             min_depth = 0
-            
+
         if 'max_depth' in kwargs:
             assert isinstance(kwargs['max_depth'], numbers.Integral)
             max_depth = kwargs['max_depth']
         else:
             max_depth = len(args) + 1
-        
+
         for t, a in enumerate(args):
             a = _list_repr(a)
             assert len(a) in (1, 2, 3, 4), \
@@ -1204,7 +1207,7 @@ class QueryWrapper(object):
                         else:
                             assert(v in class_list), 'Invalid Relationship or Node class'
                     arg_dict['cls'] = a[1]
-                
+
             classes, attrs, depth, columns = _kwargs(arg_dict)
 
             attrs_query = ""
@@ -1212,17 +1215,17 @@ class QueryWrapper(object):
                 attrs_query = " and (" + " and ".join(attrs) + ") "
             elif (not classes) and attrs:
                 attrs_query = " where (" + " and ".join(attrs) + ") "
-  
+
             #relationships = [direction + "('%s')" % (a if isinstance(a, basestring) else a[0]) for a in args[:t+1]]
             relationships = [direction + "('%s')" % (x if isinstance(x, basestring) else x[0]) for x in args[t:t+1]]
-            
+
             var = '$q' + str(t+1)
 
             #q[var] = "%s = (select from (select expand(%s) from [%s]) %s)" % \
             #            (var, ".".join(relationships), ", ".join(rid_list), classes)
             q[var] = "%s = (select from (select expand(%s) from %s) %s %s)" % \
                         (var, ".".join(relationships), '$q' + str(t), classes, attrs_query)
-            
+
             #dq[var] = "%s = (select from (select expand(%s) from (%s)) %s)" % \
             #            (var, ".".join(relationships),self._disp_query, classes)
         query = "select expand($q) let %s, $q = unionall(%s) " % \
@@ -1230,27 +1233,27 @@ class QueryWrapper(object):
         disp_query = ""
         #disp_query = "select expand($q) let %s, $q = unionall(%s) " % \
         #        (", ".join(dq.values()[min_depth:max_depth]), ",".join(dq.keys()[min_depth:max_depth]))
-        
+
         return self.__class__(self._graph, QueryString(query, "sql"), disp_query=disp_query)
-        
+
 
     def export_graph(self, graph_name, as_type='df', stored_as='gpickle', compression=''):
         g = self.get_as(as_type)
         if as_type=='df':
             g[0].to_csv(graph_name+'_nodes.csv', index=True)
             g[1].to_csv(graph_name+'_edges.csv', index=False)
-            return 'Saved'        
+            return 'Saved'
         elif as_type=='nx':
             if stored_as=='gpickle':
                 nx.nx.write_gpickle(g, graph_name+'.gpickle'+compression)
-                return 'Saved'        
+                return 'Saved'
             elif stored_as=='gexf':
                 nx.nx.write_gexf(g, graph_name+'.gexf'+compression)
                 return 'Saved'
             else:
                 raise UnsupportedView(stored_as)
-        raise UnsupportedView(as_type) 
-    
+        raise UnsupportedView(as_type)
+
     def import_graph(self, graph_name, as_type='df', stored_as='csv', compression=''):
         client = self._graph.client
         if as_type=='df':
@@ -1269,7 +1272,7 @@ class QueryWrapper(object):
                 return True
         return False
 
-              
+
     def __or__(self, other):
         assert isinstance(other, self.__class__)
         return self.__class__(self._graph, ('|', self._query, other._query),
@@ -1311,19 +1314,19 @@ class QueryWrapper(object):
         self._query = ('-', self._query, other._query)
         self._nodes = self._dict_difference(self._nodes, other._nodes)
         #self._disp_query = '(%s\n-\n%s)' %(self._disp_query, other._disp_query)
-        
+
     def __iand__(self, other):
         assert isinstance(other, self.__class__)
         self._query = ('&', self._query, other._query)
         self._nodes = self._dict_intersection(self._nodes, other._nodes)
         #self._disp_query = '(%s\n&\n%s)' %(self._disp_query, other._disp_query)
-        
+
     def __ixor__(self, other):
         assert isinstance(other, self.__class__)
         self._query = ('^', self._query, other._query)
         self._nodes = self._dict_symmetric_difference(self._nodes, other._nodes)
         #self._disp_query = '(%s\n^\n%s)' %(self._disp_query, other._disp_query)
-        
+
     def __eq__(self, other):
         """
         Check whether nodes returned by queries are equivalent.
@@ -1344,7 +1347,7 @@ def _q_repr(attr):
         return "'" + str(attr) + "'"
     else:
         return str(attr)
-    
+
 def _list_repr(attr):
     if not(isinstance(attr, list)):
         if isinstance(attr, (basestring, numbers.Number)):
@@ -1382,7 +1385,7 @@ def _kwargs(kwargs):
             else:
                 if len(v) == 1 and isinstance(v[0],(unicode,str)) and len(v[0])>=2 and v[0][:2] == '/r':
                     attrs.append("%s matches '%s'" % (k, v[0][2:]))
-                elif (len(v) ==2 and isinstance(v[0],(unicode,str)) and len(v[0]) 
+                elif (len(v) ==2 and isinstance(v[0],(unicode,str)) and len(v[0])
                 and v[0] in ['<','>','=','<=','>=']):
                     attrs.append("%s %s %s" % (k,v[0],v[1]))
                 else:
@@ -1400,21 +1403,21 @@ if __name__ == '__main__':
     from neuroarch.diff import diff_nodes, diff_edges
     from neuroarch.apply_diff import apply_node_diff, apply_edge_diff
     import pandas as pd
-    
+
     from neuroarch.models import Node, Relationship
-    
+
     from pyorient.ogm.declarative import declarative_node, declarative_relationship
 
     SchemaNode = declarative_node()
     SchemaRelationship = declarative_relationship()
     graph = Graph(Config.from_url('/na_server', 'root', 'root', initial_drop=False))
-    
+
     classes_from_schema = graph.build_mapping(SchemaNode, SchemaRelationship, auto_plural=True)
 
     graph.include(Node.registry)
     graph.include(Relationship.registry)
     print graph, type(graph)
-    
+
     q2=QueryWrapper(graph,QueryString("select from CartridgeModel where name in ['cart114']",'sql'))
     print q2
     n1 = q2.traverse_owns(max_levels=3) #, cls = 'MorrisLecar')
@@ -1423,12 +1426,10 @@ if __name__ == '__main__':
     threshold = list(np.arange(0,1.,0.1)) + [np.nan]*(len(n2)-len(np.arange(0,1.,0.1)))
     model = ['a']*(len(n2)-4) + [np.nan]*4
     n2['threshold'] = threshold
-    a={'#111:1':{'name': 'a', 'n_outputs': 2, 'class': 'MorrisLecar'}}    
-    b={'#112:1':{'name': 'b', 'n_outputs': 2, 'class': 'MorrisLecar'}}    
+    a={'#111:1':{'name': 'a', 'n_outputs': 2, 'class': 'MorrisLecar'}}
+    b={'#112:1':{'name': 'b', 'n_outputs': 2, 'class': 'MorrisLecar'}}
     n2 = n2.ix[:]
     n2 = n2.append(pd.DataFrame(a).T)
     n2 = n2.append(pd.DataFrame(b).T)
     n2.drop(['V2'], inplace=True, axis=1)
     q3 = QueryWrapper(graph,QueryString("select from Neuron limit 20",'sql'))
-    
-    

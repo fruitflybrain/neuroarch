@@ -142,7 +142,7 @@ class Neuropil(BioNode):
     element_plural = 'Neuropils'
     name = String(nullable=False, unique=False, indexed=True)
     synonyms = EmbeddedList(nullable=True, unique=False, indexed=True)
-    
+
 class Tract(BioNode):
     element_type = 'Tract'
     element_plural = 'Tracts'
@@ -199,7 +199,7 @@ class InferredSynapse(BioNode):
     element_plural = 'InferredSynapses'
     name = String(nullable=False, unique=False, indexed=True)
     N = Integer(nullable=True, unique=False, indexed=True)
-    
+
 class GapJunction(BioNode):
     element_type = 'GapJunction'
     element_plural = 'GapJunctions'
@@ -220,7 +220,7 @@ class ArborizationData(BioNode):
     axons = EmbeddedMap(nullable=True, unique=False, indexed=True)
     name = String(nullable=True, unique=False, indexed=True)
     uname = String(nullable=True, unique=False, indexed=True)
-        
+
 class GeneticData(BioNode):
     element_type = 'GeneticData'
     element_plural = 'GeneticDatas'
@@ -245,7 +245,7 @@ class NeurotransmitterData(BioNode):
     element_plural = 'NeurotransmitterDatas'
     name = String(nullable=False, unique=False, indexed=True)
     Transmitters = EmbeddedList(nullable=False, unique=False, indexed=True)
-    
+
 # Circuit design nodes:
 class DesignNode(Node):
     element_type = 'DesignNode'
@@ -390,7 +390,9 @@ class QueryResult(Node):
     element_type = 'QueryResult'
     element_plural = 'QueryResults'
     tag =  String(nullable=False, unique=True, indexed=True)
-    
+    keywords = EmbeddedList(linked_to=String(), nullable=True, unique=False, indexed=True)
+    FFBOdata = EmbeddedMap(nullable=True, unique=False, indexed=True)
+
 class QueryOwns(Relationship):
     label = 'QueryOwns'
 
@@ -399,4 +401,3 @@ class Models(Relationship):
 
 class HasQueryResults(Relationship):
     label = 'HasQueryResults'
-    
