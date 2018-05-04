@@ -245,7 +245,6 @@ class NeurotransmitterData(BioNode):
     element_plural = 'NeurotransmitterDatas'
     name = String(nullable=False, unique=False, indexed=True)
     Transmitters = EmbeddedList(nullable=False, unique=False, indexed=True)
-
 # Circuit design nodes:
 class DesignNode(Node):
     element_type = 'DesignNode'

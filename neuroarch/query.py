@@ -129,8 +129,8 @@ class QueryWrapper(object):
         QueryResultNode = QueryWrapper.from_objs(graph,obj)
         output = {}
         output['metadata'] = QueryResultNode.get_as('df')[0].to_dict(orient='index').values()[0]
-        for i in range(len(output['metadata']['pin'])):
-            output['metadata']['pin'][i] = '#' + ":".join(map(str,output['metadata']['pin'][i][1:]))
+        for i in range(len(output['metadata']['pinned'])):
+            output['metadata']['pinned'][i] = '#' + ":".join(map(str,output['metadata']['pinned'][i][1:]))
         output['qw'] = QueryResultNode.gen_traversal_out(['HasQueryResults'],min_depth=1)
         return output
 
@@ -880,7 +880,6 @@ class QueryWrapper(object):
 
     def _get_in_edges(self, rid, edge_types):
         in_relationships = ["in('%s') as %s" % (e, e) for e in edge_types]
-
         if isinstance(rid, basestring):
             rids = [rid]
         query = "select @RID as rid, %s from %s " % (", ".join(in_relationships), ", ".join(rids))
