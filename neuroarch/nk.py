@@ -18,7 +18,7 @@ import networkx as nx
 def nk_lpu_to_na(g, lpu_name, circuit_attr='circuit',
                  circuit_class='CircuitModel'):
     """
-    Transform a graph containing a Neurokernel-executable circuit into 
+    Transform a graph containing a Neurokernel-executable circuit into
     one that conforms to Neuroarch's data model.
 
     Parameters
@@ -64,19 +64,19 @@ def nk_lpu_to_na(g, lpu_name, circuit_attr='circuit',
     # Owns edge:
     g_new = nx.MultiDiGraph()
     lpu_id = gen_new_id()
-    g_new.add_node(lpu_id, 
-                   attr_dict={'name': lpu_name, 'class': 'LPU'})
+    g_new.add_node(lpu_id,
+                   **{'name': lpu_name, 'class': 'LPU'})
     int_id = gen_new_id()
     g_new.add_node(int_id,
-                   attr_dict={'name': 0, 'class': 'Interface'})
-    g_new.add_edge(lpu_id, int_id, attr_dict={'class': 'Owns'})
+                   **{'name': 0, 'class': 'Interface'})
+    g_new.add_edge(lpu_id, int_id, **{'class': 'Owns'})
 
-    # Transformation: 
+    # Transformation:
     # 1. nonpublic neuron node -> neuron node
-    # 2. public neuron node -> neuron node with 
+    # 2. public neuron node -> neuron node with
     #    output edge to output port
     # 3. input port -> input port
-    # 4. synapse edge -> synapse node + 2 edges connecting 
+    # 4. synapse edge -> synapse node + 2 edges connecting
     #    transformed original input/output nodes
     edges_to_out_ports = {} # edges to new output port nodes:
     for id, data in g.nodes(data=True):
@@ -101,7 +101,7 @@ def nk_lpu_to_na(g, lpu_name, circuit_attr='circuit',
             edges_to_out_ports[(id, new_id)] = {'class': 'SendsTo'}
 
             # Connect interface node to output port:
-            g_new.add_edge(int_id, new_id, attr_dict={'class': 'Owns'})
+            g_new.add_edge(int_id, new_id, **{'class': 'Owns'})
 
         if 'model' in data:
 
@@ -112,7 +112,7 @@ def nk_lpu_to_na(g, lpu_name, circuit_attr='circuit',
                 data['port_type'] = 'gpot'
                 data['port_io'] = 'in'
 
-                # The circuit attrib isn't needed because ports should only be owned by 
+                # The circuit attrib isn't needed because ports should only be owned by
                 # interface node, but we don't delete it in order to facilitate
                 # converting the graph back to Neurokernel-compatible format.
             elif data['model'] == 'port_in_spk':
@@ -120,7 +120,7 @@ def nk_lpu_to_na(g, lpu_name, circuit_attr='circuit',
                 data['port_type'] = 'spike'
                 data['port_io'] = 'in'
 
-                # The circuit attrib isn't needed because ports should only be owned by 
+                # The circuit attrib isn't needed because ports should only be owned by
                 # interface node, but we don't delete it in order to facilitate
                 # converting the graph back to Neurokernel-compatible format.
             elif data['model'] in ['MorrisLecar', 'LeakyIAF']:
@@ -134,14 +134,14 @@ def nk_lpu_to_na(g, lpu_name, circuit_attr='circuit',
 
             # Don't need to several attributes that are implicit:
             for a in ['model', 'public', 'spiking']:
-                if a in data: 
+                if a in data:
                     del data[a]
 
-            g_new.add_node(id, attr_dict=data)
+            g_new.add_node(id, **data)
 
             # Connect interface node to output port:
             if data['class'] == 'Port':
-                g_new.add_edge(int_id, id, attr_dict={'class': 'Owns'})
+                g_new.add_edge(int_id, id, **{'class': 'Owns'})
 
     # Create synapse nodes for each edge in original graph and connect them to
     # the source/dest neuron/port nodes:
@@ -154,7 +154,7 @@ def nk_lpu_to_na(g, lpu_name, circuit_attr='circuit',
         # former explicitly because it can be inferred from the types
         # of the connected neurons, i.e., MorrisLecar is graded potential,
         # LeakyIAF is spiking:
-        if data['model'] == 'AlphaSynapse':            
+        if data['model'] == 'AlphaSynapse':
             data['class'] = 'AlphaSynapse'
         elif data['model'] == 'power_gpot_gpot':
             data['class'] = 'PowerGPotGPot'
@@ -167,13 +167,13 @@ def nk_lpu_to_na(g, lpu_name, circuit_attr='circuit',
             del data['id']
 
         new_id = gen_new_id()
-        g_new.add_node(new_id, attr_dict=data)
-        g_new.add_edge(from_id, new_id, attr_dict={'class': 'SendsTo'})
-        g_new.add_edge(new_id, to_id, attr_dict={'class': 'SendsTo'})
+        g_new.add_node(new_id, **data)
+        g_new.add_edge(from_id, new_id, **{'class': 'SendsTo'})
+        g_new.add_edge(new_id, to_id, **{'class': 'SendsTo'})
 
     # Connect output ports to the neurons that emit data through them:
     for from_id, to_id in edges_to_out_ports:
-        g_new.add_edge(from_id, to_id, attr_dict={'class': 'SendsTo'})
+        g_new.add_edge(from_id, to_id, **{'class': 'SendsTo'})
 
     circuit_nodes = {}
     circuit_name_to_id = {}
@@ -186,26 +186,26 @@ def nk_lpu_to_na(g, lpu_name, circuit_attr='circuit',
             if data[circuit_attr] not in circuit_name_to_id:
                 new_id = gen_new_id()
                 circuit_name_to_id[data[circuit_attr]] = new_id
-                g_new.add_node(new_id, attr_dict={'name': data[circuit_attr],
+                g_new.add_node(new_id, **{'name': data[circuit_attr],
                                                   'class': circuit_class})
 
                 # Connect the LPU node to the new circuit node:
-                g_new.add_edge(lpu_id, new_id, attr_dict={'class': 'Owns'})
+                g_new.add_edge(lpu_id, new_id, **{'class': 'Owns'})
 
             # Connect circuit node to current node:
             g_new.add_edge(circuit_name_to_id[data[circuit_attr]], id,
-                           attr_dict={'class': 'Owns'})
+                           **{'class': 'Owns'})
 
         # Otherwise, connect the neurons/synapses to the LPU node directly:
         else:
             g_new.add_edge(lpu_id, id,
-                           attr_dict={'class': 'Owns'})
-            
+                           **{'class': 'Owns'})
+
     return g_new
 
 def na_lpu_to_nk(g):
     """
-    Transform a graph containing a Neuroarch-compatible circuit into 
+    Transform a graph containing a Neuroarch-compatible circuit into
     one that can be executed by Neurokernel.
 
     Parameters
@@ -292,7 +292,7 @@ def na_lpu_to_nk(g):
 
         # Synapses:
         elif data['class'] in ['AlphaSynapse', 'PowerGPotGPot']:
-            
+
             # Convert Neuroarch class into Neurokernel model:
             if data['class'] == 'AlphaSynapse':
                 data['model'] = u'AlphaSynapse'
@@ -341,7 +341,7 @@ def na_lpu_to_nk(g):
                     synapse_keys[(from_id, to_id)] = itertools.count()
 
                 # Save nodes connected to synapse node so that an edge can be
-                # created in the new graph:                
+                # created in the new graph:
                 synapses[(from_id, to_id,
                           synapse_keys[(from_id, to_id)].next())] = data
 
@@ -354,11 +354,11 @@ def na_lpu_to_nk(g):
         else:
             continue
 
-        g_new.add_node(id, attr_dict=data)
+        g_new.add_node(id, **data)
 
     # Create synapse edges:
     for (from_id, to_id, key), data in synapses.iteritems():
-        g_new.add_edge(from_id, to_id, attr_dict=data)
+        g_new.add_edge(from_id, to_id, **data)
 
     return g_new
 
@@ -387,8 +387,8 @@ def nk_pat_to_na(g, pat_name):
     # Create pattern node:
     gen_new_id = itertools.count().next
     pat_id = gen_new_id()
-    g_new.add_node(pat_id, attr_dict={'class': 'Pattern', 'name': pat_name})
-                         
+    g_new.add_node(pat_id, **{'class': 'Pattern', 'name': pat_name})
+
     int_ids = {}
     sel_to_id = {}
     for i in [0, 1]:
@@ -397,8 +397,8 @@ def nk_pat_to_na(g, pat_name):
         int_ids[i] = gen_new_id()
 
         # Create interface nodes and connect pattern node to them:
-        g_new.add_node(int_ids[i], attr_dict={'class': 'Interface', 'name': i})
-        g_new.add_edge(pat_id, int_ids[i], attr_dict={'class': 'Owns'})
+        g_new.add_node(int_ids[i], **{'class': 'Interface', 'name': i})
+        g_new.add_edge(pat_id, int_ids[i], **{'class': 'Owns'})
 
     # Create port nodes:
     for n, data in g.nodes(data=True):
@@ -406,23 +406,23 @@ def nk_pat_to_na(g, pat_name):
 
         id = gen_new_id()
         sel_to_id[n] = id
-        g_new.add_node(id, attr_dict={'class': 'Port',
+        g_new.add_node(id, **{'class': 'Port',
                                       'selector': n,
                                       'port_io': data['io'],
                                       'port_type': data['type']})
-        g_new.add_edge(int_ids[int(data['interface'])], id, 
-                       attr_dict={'class': 'Owns'})
+        g_new.add_edge(int_ids[int(data['interface'])], id,
+                       **{'class': 'Owns'})
 
     # Create connections between ports in the two interfaces:
     for from_sel, to_sel in g.edges():
         g_new.add_edge(sel_to_id[from_sel], sel_to_id[to_sel],
-                       attr_dict={'class': 'SendsTo'})
+                       **{'class': 'SendsTo'})
 
     return g_new
 
 def na_pat_to_nk(g):
     """
-    Transform a graph containing a Neuroarch-compatible pattern into 
+    Transform a graph containing a Neuroarch-compatible pattern into
     one that can be executed by Neurokernel.
 
     Parameters
@@ -452,7 +452,7 @@ def na_pat_to_nk(g):
             data = g.node[old_port_id]
             new_port_id = data['selector']
             g_new.add_node(new_port_id,
-                           attr_dict={'interface': int_id_to_name[int_id],
+                           **{'interface': int_id_to_name[int_id],
                                       'io': data['port_io'],
                                       'type': data['port_type']})
             old_port_id_to_new[old_port_id] = new_port_id
@@ -469,7 +469,7 @@ def na_pat_to_nk(g):
 
 def na_lpu_to_nk_new(g):
     """
-    Transform a graph containing a Neuroarch-compatible circuit into 
+    Transform a graph containing a Neuroarch-compatible circuit into
     one that can be executed by Neurokernel.
 
     Parameters
@@ -484,7 +484,7 @@ def na_lpu_to_nk_new(g):
     """
 
     assert isinstance(g, nx.MultiDiGraph)
-    
+
     g_new = nx.MultiDiGraph()
     id_to_label = {}
 
@@ -492,16 +492,16 @@ def na_lpu_to_nk_new(g):
         if data['class'] in ['OmmatidiumModel', 'CartridgeModel', 'ColumnModel',
                              'Interface', 'LPU']:
             continue
-        
+
         # Don't clobber the original graph's data:
         data = copy.deepcopy(data)
-        g_new.add_node(data['label'], attr_dict=data)
+        g_new.add_node(data['label'], **data)
         id_to_label[id] = data['label']
 
     # Create synapse edges:
     for from_id, to_id, data in g.edges(data = True):
         data = copy.deepcopy(data)
         if data.pop('class') == 'SendsTo':
-            g_new.add_edge(id_to_label[from_id], id_to_label[to_id], attr_dict=data)
+            g_new.add_edge(id_to_label[from_id], id_to_label[to_id], **data)
 
     return g_new
