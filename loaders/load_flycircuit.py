@@ -5,7 +5,7 @@
 # Distributed under the terms of the BSD license:
 # http://www.opensource.org/licenses/bsd-license
 
-import cPickle as pickle
+import pickle
 import copy
 import logging
 import sys
@@ -123,7 +123,7 @@ class NTHULoader(object):
             i = -1
             for neuron in reader:
                 i+=1
-                print i
+                print(i)
                 # Process a neuron
                 # Name Dendrites Axons  Total  Neuropil Locality
                 #  0      1        2      3       4        5

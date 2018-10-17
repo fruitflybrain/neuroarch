@@ -50,20 +50,20 @@ class TestConvNetworkX(TestCase):
 
     def _create_nx_graph(self):
         g = nx.MultiDiGraph()
-        g.add_node(0, attr_dict={'name': 'foo',
+        g.add_node(0, **{'name': 'foo',
                                  'class': 'neuron'})
-        g.add_node(1, attr_dict={'name': 'bar',
+        g.add_node(1, **{'name': 'bar',
                                  'class': 'neuron'})
-        g.add_node(2, attr_dict={'name': 'baz',
+        g.add_node(2, **{'name': 'baz',
                                  'class': 'neuron'})
-        g.add_node(3, attr_dict={'name': 'foo-bar',
+        g.add_node(3, **{'name': 'foo-bar',
                                  'class': 'synapse'})
-        g.add_node(4, attr_dict={'name': 'foo-baz',
+        g.add_node(4, **{'name': 'foo-baz',
                                  'class': 'synapse'})
-        g.add_edge(0, 3, attr_dict={'class': 'data'})
-        g.add_edge(3, 1, attr_dict={'class': 'data'})
-        g.add_edge(0, 4, attr_dict={'class': 'data'})
-        g.add_edge(4, 2, attr_dict={'class': 'data'})
+        g.add_edge(0, 3, **{'class': 'data'})
+        g.add_edge(3, 1, **{'class': 'data'})
+        g.add_edge(0, 4, **{'class': 'data'})
+        g.add_edge(4, 2, **{'class': 'data'})
         return g
 
     def _create_orient_graph(self):
@@ -107,13 +107,13 @@ class TestConvNetworkX(TestCase):
 
     def test_nx_to_orient_double(self):
         g_nx = nx.MultiDiGraph()
-        g_nx.add_node(0, attr_dict={'name': 'foo',
+        g_nx.add_node(0, **{'name': 'foo',
                                     'class': 'neuron',
                                     'x': 1/3.0})
-        g_nx.add_node(1, attr_dict={'name': 'bar',
+        g_nx.add_node(1, **{'name': 'bar',
                                     'class': 'neuron',
                                     'x': 1/7.0})
-        g_nx.add_edge(0, 1, attr_dict={'class': 'data'})
+        g_nx.add_edge(0, 1, **{'class': 'data'})
         neuroarch.conv.nx.nx_to_orient(self.client, g_nx)
         g_orient = neuroarch.conv.nx.orient_to_nx(self.client,
                     'g.V.has("@class", T.in, ["neuron","synapse"])',

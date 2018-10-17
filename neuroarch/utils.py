@@ -142,7 +142,7 @@ def rand_bin_matrix(sh, N, dtype=np.double):
 
     result = np.zeros(sh, dtype)
     indices = np.arange(result.size)
-    np.random.shuffle(indices)
+    indices = np.random.shuffle(indices)
     result.ravel()[indices[:N]] = 1
     return result
 
@@ -152,10 +152,10 @@ def byteify(input):
     """
 
     if isinstance(input, dict):
-        return {byteify(key): byteify(value) for key, value in input.iteritems()}
+        return {byteify(key): byteify(value) for key, value in input.items()}
     elif isinstance(input, list):
         return [byteify(element) for element in input]
-    elif isinstance(input, unicode):
+    elif isinstance(input, str):
         return input.encode('utf-8')
     else:
         return input

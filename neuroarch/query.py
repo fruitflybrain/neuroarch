@@ -12,7 +12,6 @@ import collections
 import numbers
 import pprint
 import re
-import cPickle
 from datetime import datetime
 import json
 
@@ -355,7 +354,7 @@ class QueryWrapper(object):
                                              str(node_query))
             return QueryString(str=s, lang='sql')
         else:
-            raise UnsupportedQueryLanguage(q.lang)
+            raise UnsupportedQueryLanguage(node_query.lang)
 
     def _edge_query_from_node_rids(self, node_rids, edge_class=''):
         """
@@ -403,7 +402,7 @@ class QueryWrapper(object):
         batch = self._graph.batch()
         batch['query_result_node'] = batch.query_results.create(query=self._query)
         for i, rid in enumerate(self._nodes):
-            batch[str(i)] = batch.query_owns.create(query_result_node,
+            batch[str(i)] = batch.query_owns.create(batch['query_result_node'],
                                                     self._graph.get_element(rid))
         batch.commit(retries)
 
@@ -831,7 +830,7 @@ class QueryWrapper(object):
 
     def _get_node_num(self, node_name, node_class):
         col_name = re.sub('[#0-9]', '', node_name)
-        query = "select max(name.replace('%s', '').asInteger()) from %s where name like '%s%'" % \
+        query = "select max(name.replace('%s', '').asInteger()) from %s where name like '%s%%'" % \
                 (col_name, node_class, col_name)
         res = self._graph.client.command(query)
         return res[0].oRecordData['max']
@@ -946,7 +945,7 @@ class QueryWrapper(object):
             cmd = []
 
             for rid, node in chunk:
-                set_cmd = ["%s = %s" % (k, v.__repr__()) for k, v in node.oRecordData.iteritems() \
+                set_cmd = ["%s = %s" % (k, v.__repr__()) for k, v in node.oRecordData.items() \
                            if isinstance(v, (basestring, numbers.Number))]
                 let_cmd = "let v%s = CREATE VERTEX %s SET " % (num, node._class)
                 node_map[rid] = '$v%s' % num
@@ -1367,7 +1366,7 @@ def _kwargs(kwargs):
     columns = ""
     depth = ""
 
-    for k, v in kwargs.iteritems():
+    for k, v in kwargs.items():
         if k=='max_levels':
             depth="while $depth <= %s" %v
         elif k=='instanceof':
@@ -1382,9 +1381,9 @@ def _kwargs(kwargs):
             elif k=='rid':
                 attrs.append("@rid in %s" % v.__repr__().replace("'",""))
             else:
-                if len(v) == 1 and isinstance(v[0],(unicode,str)) and len(v[0])>=2 and v[0][:2] == '/r':
+                if len(v) == 1 and isinstance(v[0],(str,bytes)) and len(v[0])>=2 and v[0][:2] == '/r':
                     attrs.append("%s matches '%s'" % (k, v[0][2:]))
-                elif (len(v) ==2 and isinstance(v[0],(unicode,str)) and len(v[0])
+                elif (len(v) ==2 and isinstance(v[0],(str,bytes)) and len(v[0])
                 and v[0] in ['<','>','=','<=','>=']):
                     attrs.append("%s %s %s" % (k,v[0],v[1]))
                 else:
@@ -1415,10 +1414,10 @@ if __name__ == '__main__':
 
     graph.include(Node.registry)
     graph.include(Relationship.registry)
-    print graph, type(graph)
+    print(graph, type(graph))
 
     q2=QueryWrapper(graph,QueryString("select from CartridgeModel where name in ['cart114']",'sql'))
-    print q2
+    print(q2)
     n1 = q2.traverse_owns(max_levels=3) #, cls = 'MorrisLecar')
     n2 = n1.get_as()[0]
 

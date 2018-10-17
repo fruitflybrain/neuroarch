@@ -425,7 +425,7 @@ def iso_attr_diff(g0, g1):
         matcher = nx.isomorphism.MultiDiGraphMatcher(g0, g1)
         if not matcher.is_isomorphic():
             raise ValueError('graphs are not structurally isomorphic')
-        for i0, i1 in matcher.mapping.iteritems():
+        for i0, i1 in matcher.mapping.items():
             d = deepdiff.DeepDiff(g0.node[i0], g1.node[i1])
             if d:
                 node_diff[(i0, i1)] = d

@@ -16,7 +16,7 @@ import numpy as np
 import networkx as nx
 import pyorient.otypes
 
-from utils import _find_field_types
+from .utils import _find_field_types
 from ..utils import byteify, chunks
 
 def as_nx(nodes=[], edges=[], force_rid=False):
@@ -96,7 +96,7 @@ def as_nx(nodes=[], edges=[], force_rid=False):
         # Save the OrientDB class:
         props['class'] = edge._class
         g.add_edge(rid_to_id[out_rid], rid_to_id[in_rid], 
-                   attr_dict=props)
+                   **props)
     return g
 
 def orient_to_nx(client, node_query='', edge_query='', force_rid=False):

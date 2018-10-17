@@ -20,7 +20,7 @@ import pyorient.otypes
 #import neuroarch.conv.nx as nx
 import neuroarch.utils as utils
 
-from query import QueryWrapper, QueryString
+from .query import QueryWrapper, QueryString
 
 def create_efficiently(graph, registry):
     """

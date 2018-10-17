@@ -19,7 +19,7 @@ def _find_field_types(d):
     """
 
     field_types = []
-    for k, v in d.iteritems():
+    for k, v in d.items():
         if isinstance(v, np.float32):
             field_types.append('%s=f' % k)
         elif isinstance(v, float) or isinstance(v, np.float64):
@@ -88,5 +88,5 @@ def pandas_to_nx(df_node, df_edge):
         to_id = props['in']
         del props['out']
         del props['in']
-        g.add_edge(from_id, to_id, attr_dict=props)
+        g.add_edge(from_id, to_id, **props)
     return g

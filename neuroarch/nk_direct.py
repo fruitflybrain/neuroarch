@@ -71,7 +71,7 @@ def na_to_nk(g):
             rid_model_id_map[model] = {}
 
         # Add neuron data to n_dict subdictionary:
-        for key in neu.iterkeys():
+        for key in neu.keys():
             n_dict[model][key].append(neu[key])
 
         # Neurons of the same model should have the same attributes:
@@ -129,7 +129,7 @@ def na_to_nk(g):
         n_dict[model]['id'].append(int(id))
 
     # Remove duplicate neuron model info:
-    for val in n_dict.itervalues():
+    for val in n_dict.values():
         val.pop('model')
     if not n_dict:
         n_dict = dict()
@@ -164,13 +164,13 @@ def na_to_nk(g):
         
         assert set(s_dict[model].keys()) == set(syn_data.keys() + ['pre', 'post'])
 
-        for key in syn_data.iterkeys():
+        for key in syn_data.keys():
             s_dict[model][key].append(syn_data[key])
         s_dict[model]['pre'].append(pre_id)
         s_dict[model]['post'].append(post_id)
 
     # Return duplicate synapse model info:
-    for val in s_dict.itervalues():
+    for val in s_dict.values():
         val.pop('model')
     if not s_dict:
         s_dict = dict()

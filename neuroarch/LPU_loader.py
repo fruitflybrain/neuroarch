@@ -102,7 +102,7 @@ def lpu_db_parser(q):
         assert(set(n_dict[model].keys()) == set(neu.keys() + ['id']))
 
         # add neuron data into the subdictionary of n_dict
-        for key in neu.iterkeys():
+        for key in neu.keys():
             n_dict[model][key].append( neu[key] )
 
         rid_id_map[rid] = id
@@ -157,7 +157,7 @@ def lpu_db_parser(q):
         assert(set(n_dict[model].keys()) == set(neu.keys() + ['id']))
 
         # add neuron data into the subdictionary of n_dict
-        for key in neu.iterkeys():
+        for key in neu.keys():
             n_dict[model][key].append( neu[key] )
 
         rid_id_map[rid] = id
@@ -168,7 +168,7 @@ def lpu_db_parser(q):
 
         
     # remove duplicate model information
-    for val in n_dict.itervalues(): val.pop('model')
+    for val in n_dict.values(): val.pop('model')
     if not n_dict: n_dict = None
 
     synapses = q._client.gremlin("t = new Table();g.v('%s').out.has('node_type','synapse').as('x').inE.has('edge_type', 'data').outV.has('node_type','neuron').id.as('y').back('x').outE.has('edge_type','data').inV.has('node_type','neuron').id.as('z').table(t).iterate();t.flatten()" % (q._rid)) 
@@ -193,12 +193,12 @@ def lpu_db_parser(q):
         # synapses of the same model should have the same attributes
         assert(set(s_dict[model].keys()) == set(syn[2].keys() + ['pre', 'post']))
         # add synaptic data into the subdictionary of s_dict
-        for key in syn[2].iterkeys():
+        for key in syn[2].keys():
             s_dict[model][key].append(syn[2][key])
         s_dict[model]['pre'].append(syn[0])
         s_dict[model]['post'].append(syn[1])
         scnt += 1
-    for val in s_dict.itervalues():
+    for val in s_dict.values():
         val.pop('model')
     if not s_dict:
         s_dict = {}

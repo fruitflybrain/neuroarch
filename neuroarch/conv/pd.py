@@ -15,7 +15,7 @@ import json
 import pandas as pd
 import pyorient.otypes
 
-from utils import _find_field_types
+from .utils import _find_field_types
 from ..utils import byteify, chunks
 
 def as_pandas(nodes=[], edges=[], force_rid=False):

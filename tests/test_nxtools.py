@@ -179,58 +179,58 @@ class TestNXTools(TestCase):
 
     def test_is_isomorphic_attr(self):
         g0 = nx.MultiDiGraph()
-        g0.add_node(0, attr_dict={'name': 'foo',
+        g0.add_node(0, **{'name': 'foo',
                                   'node_type': 'neuron'})
-        g0.add_node(1, attr_dict={'name': 'bar',
+        g0.add_node(1, **{'name': 'bar',
                                   'node_type': 'neuron'})
-        g0.add_node(2, attr_dict={'name': 'foo-bar',
+        g0.add_node(2, **{'name': 'foo-bar',
                                   'node_type': 'synapse'})
-        g0.add_edge(0, 2, attr_dict={'edge_type': 'data'})
-        g0.add_edge(2, 1, attr_dict={'edge_type': 'data'})
+        g0.add_edge(0, 2, **{'edge_type': 'data'})
+        g0.add_edge(2, 1, **{'edge_type': 'data'})
 
         g1 = nx.MultiDiGraph()
-        g1.add_node('a', attr_dict={'name': 'foo',
+        g1.add_node('a', **{'name': 'foo',
                                     'node_type': 'neuron'})
-        g1.add_node('b', attr_dict={'name': 'bar',
+        g1.add_node('b', **{'name': 'bar',
                                     'node_type': 'neuron'})
-        g1.add_node('c', attr_dict={'name': 'foo-bar',
+        g1.add_node('c', **{'name': 'foo-bar',
                                     'node_type': 'synapse'})
-        g1.add_edge('a', 'c', attr_dict={'edge_type': 'data'})
-        g1.add_edge('c', 'b', attr_dict={'edge_type': 'data'})
+        g1.add_edge('a', 'c', **{'edge_type': 'data'})
+        g1.add_edge('c', 'b', **{'edge_type': 'data'})
 
         g2 = nx.MultiDiGraph()
-        g2.add_node('a', attr_dict={'name': 'foo',
+        g2.add_node('a', **{'name': 'foo',
                                     'node_type': 'neuron'})
-        g2.add_node('b', attr_dict={'name': 'bar',
+        g2.add_node('b', **{'name': 'bar',
                                     'node_type': 'neuron'})
-        g2.add_node('c', attr_dict={'name': 'foo-bar',
+        g2.add_node('c', **{'name': 'foo-bar',
                                     'node_type': 'synapse'})
-        g2.add_edge('a', 'c', attr_dict={'edge_type': 'xxxx'})
-        g2.add_edge('c', 'b', attr_dict={'edge_type': 'data'})
+        g2.add_edge('a', 'c', **{'edge_type': 'xxxx'})
+        g2.add_edge('c', 'b', **{'edge_type': 'data'})
 
         assert nxtools.is_isomorphic_attr(g0, g1)
         assert not nxtools.is_isomorphic_attr(g0, g2)
 
     def test_iso_attr_diff_multidigraph_no_multiedges(self):
         g0 = nx.MultiDiGraph()
-        g0.add_node(0, attr_dict={'name': 'foo',
+        g0.add_node(0, **{'name': 'foo',
                                   'node_type': 'neuron'})
-        g0.add_node(1, attr_dict={'name': 'bar',
+        g0.add_node(1, **{'name': 'bar',
                                   'node_type': 'neuron'})
-        g0.add_node(2, attr_dict={'name': 'foo-bar',
+        g0.add_node(2, **{'name': 'foo-bar',
                                   'node_type': 'synapse'})
-        g0.add_edge(0, 2, attr_dict={'edge_type': 'data'})
-        g0.add_edge(2, 1, attr_dict={'edge_type': 'data'})
+        g0.add_edge(0, 2, **{'edge_type': 'data'})
+        g0.add_edge(2, 1, **{'edge_type': 'data'})
 
         g1 = nx.MultiDiGraph()
-        g1.add_node('a', attr_dict={'name': 'foo',
+        g1.add_node('a', **{'name': 'foo',
                                     'node_type': 'neuron'})
-        g1.add_node('b', attr_dict={'name': 'bar',
+        g1.add_node('b', **{'name': 'bar',
                                     'node_type': 'neuron'})
-        g1.add_node('c', attr_dict={'name': 'foo-bar',
+        g1.add_node('c', **{'name': 'foo-bar',
                                     'node_type': 'synapse'})
-        g1.add_edge('a', 'c', attr_dict={'edge_type': 'data'})
-        g1.add_edge('c', 'b', attr_dict={'edge_type': 'data'})
+        g1.add_edge('a', 'c', **{'edge_type': 'data'})
+        g1.add_edge('c', 'b', **{'edge_type': 'data'})
 
         node_diff, edge_diff = nxtools.iso_attr_diff(g0, g1)
         self.assertDictEqual(node_diff, {})
@@ -238,37 +238,37 @@ class TestNXTools(TestCase):
 
     def test_iso_attr_diff_multidigraph_multiedges(self):
         g0 = nx.MultiDiGraph()
-        g0.add_node(0, attr_dict={'name': 'foo',
+        g0.add_node(0, **{'name': 'foo',
                                   'node_type': 'neuron'})
-        g0.add_node(1, attr_dict={'name': 'bar',
+        g0.add_node(1, **{'name': 'bar',
                                   'node_type': 'neuron'})
-        g0.add_node(2, attr_dict={'name': 'foo-bar',
+        g0.add_node(2, **{'name': 'foo-bar',
                                   'node_type': 'synapse'})
-        g0.add_edge(0, 2, attr_dict={'edge_type': 'data'})
-        g0.add_edge(0, 2, attr_dict={'edge_type': 'data'})
-        g0.add_edge(2, 1, attr_dict={'edge_type': 'data'})
+        g0.add_edge(0, 2, **{'edge_type': 'data'})
+        g0.add_edge(0, 2, **{'edge_type': 'data'})
+        g0.add_edge(2, 1, **{'edge_type': 'data'})
 
         g1 = nx.MultiDiGraph()
-        g1.add_node('a', attr_dict={'name': 'foo',
+        g1.add_node('a', **{'name': 'foo',
                                     'node_type': 'neuron'})
-        g1.add_node('b', attr_dict={'name': 'bar',
+        g1.add_node('b', **{'name': 'bar',
                                     'node_type': 'neuron'})
-        g1.add_node('c', attr_dict={'name': 'foo-bar',
+        g1.add_node('c', **{'name': 'foo-bar',
                                     'node_type': 'synapse'})
-        g1.add_edge('a', 'c', attr_dict={'edge_type': 'data'})
-        g1.add_edge('a', 'c', attr_dict={'edge_type': 'data'})
-        g1.add_edge('c', 'b', attr_dict={'edge_type': 'data'})
+        g1.add_edge('a', 'c', **{'edge_type': 'data'})
+        g1.add_edge('a', 'c', **{'edge_type': 'data'})
+        g1.add_edge('c', 'b', **{'edge_type': 'data'})
 
         g2 = nx.MultiDiGraph()
-        g2.add_node('a', attr_dict={'name': 'foo',
+        g2.add_node('a', **{'name': 'foo',
                                     'node_type': 'neuron'})
-        g2.add_node('b', attr_dict={'name': 'bar',
+        g2.add_node('b', **{'name': 'bar',
                                     'node_type': 'neuron'})
-        g2.add_node('c', attr_dict={'name': 'foo-bar',
+        g2.add_node('c', **{'name': 'foo-bar',
                                     'node_type': 'synapse'})
-        g2.add_edge('a', 'c', attr_dict={'edge_type': 'data'})
-        g2.add_edge('a', 'c', attr_dict={'edge_type': 'xxxx'})
-        g2.add_edge('c', 'b', attr_dict={'edge_type': 'data'})
+        g2.add_edge('a', 'c', **{'edge_type': 'data'})
+        g2.add_edge('a', 'c', **{'edge_type': 'xxxx'})
+        g2.add_edge('c', 'b', **{'edge_type': 'data'})
 
         node_diff, edge_diff = nxtools.iso_attr_diff(g0, g1)
         self.assertDictEqual(node_diff, {})
@@ -288,7 +288,7 @@ class TestNXTools(TestCase):
         f = tempfile.mktemp()
         g_orig = nx.DiGraph()
         g_orig.add_nodes_from(['a', 'b'])
-        g_orig.add_edge('a', 'b', attr_dict={'x': 1})
+        g_orig.add_edge('a', 'b', **{'x': 1})
         nx.write_gexf(g_orig, f)
         g_new = nxtools.read_gexf(f)
         os.unlink(f)
@@ -301,8 +301,8 @@ class TestNXTools(TestCase):
         f = tempfile.mktemp()
         g_orig = nx.MultiDiGraph()
         g_orig.add_nodes_from(['a', 'b'])
-        g_orig.add_edge('a', 'b', attr_dict={'x': 1})
-        g_orig.add_edge('a', 'b', attr_dict={'x': 2})
+        g_orig.add_edge('a', 'b', **{'x': 1})
+        g_orig.add_edge('a', 'b', **{'x': 2})
         nx.write_gexf(g_orig, f)
         g_new = nxtools.read_gexf(f)
         os.unlink(f)
