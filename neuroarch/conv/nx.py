@@ -83,7 +83,7 @@ def as_nx(nodes=[], edges=[], force_rid=False):
             del props['id']
         else:
             id = node._rid
-        g.add_node(id, props)
+        g.add_node(id, **props)
         rid_to_id[node._rid] = id
 
     for edge in edges:
