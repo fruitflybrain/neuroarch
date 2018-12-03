@@ -47,7 +47,7 @@ def nodes_has(g, nbunch, attr, value, op=operator.eq, flags=0):
         List of selected nodes.
     """
 
-    assert np.iterable(nbunch) and not isinstance(nbunch, basestring)
+    assert np.iterable(nbunch) and not isinstance(nbunch, str)
     if op in [re.search, re.match]:
         _op = lambda s, p: op(p, s, flags)
     else:
@@ -114,7 +114,7 @@ def edges_has(g, ebunch, attr, value, op=operator.eq, flags=0):
         List of selected edge endpoint tuples.
     """
 
-    assert np.iterable(ebunch) and not isinstance(ebunch, basestring)
+    assert np.iterable(ebunch) and not isinstance(ebunch, str)
     if op in [re.search, re.match]:
         _op = lambda s, p: op(p, s, flags)
     else:
@@ -190,7 +190,7 @@ def out_nodes_has(g, nbunch, attr, value, op=operator.eq, flags=0):
         List of selected node identifiers.
     """
 
-    assert np.iterable(nbunch) and not isinstance(nbunch, basestring)
+    assert np.iterable(nbunch) and not isinstance(nbunch, str)
     if op in [re.search, re.match]:
         _op = lambda s, p: op(p, s, flags)
     else:
@@ -230,7 +230,7 @@ def in_nodes_has(g, nbunch, attr, value, op=operator.eq, flags=0):
         List of selected node identifiers.
     """
 
-    assert np.iterable(nbunch) and not isinstance(nbunch, basestring)
+    assert np.iterable(nbunch) and not isinstance(nbunch, str)
     if op in [re.search, re.match]:
         _op = lambda s, p: op(p, s, flags)
     else:
@@ -271,7 +271,7 @@ def out_edges_has(g, nbunch, attr, value, op=operator.eq, flags=0):
         the tuples contain the endpoints and key for each respective edge.
     """
 
-    assert np.iterable(nbunch) and not isinstance(nbunch, basestring)
+    assert np.iterable(nbunch) and not isinstance(nbunch, str)
     if op in [re.search, re.match]:
         _op = lambda s, p: op(p, s, flags)
     else:
@@ -318,7 +318,7 @@ def in_edges_has(g, nbunch, attr, value, op=operator.eq, flags=0):
         the tuples contain the endpoints and key for each respective edge.
     """
 
-    assert np.iterable(nbunch) and not isinstance(nbunch, basestring)
+    assert np.iterable(nbunch) and not isinstance(nbunch, str)
     if op in [re.search, re.match]:
         _op = lambda s, p: op(p, s, flags)
     else:

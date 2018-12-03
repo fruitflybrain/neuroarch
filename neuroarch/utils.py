@@ -31,7 +31,7 @@ def is_rid(rid):
     Returns True if the specified string is a well-formatted OrientDB RID.
     """
 
-    if isinstance(rid, basestring) and re.search('^\#\d+\:\d+$', rid):
+    if isinstance(rid, str) and re.search('^\#\d+\:\d+$', rid):
         return True
     else:
         return False
@@ -48,7 +48,7 @@ def orientrecord_to_dict(r):
                 if not isinstance(d[k], OrientBinaryObject):
                     out[k] = rec(d[k])
             return out
-        elif _iterable(d) and not isinstance(d, basestring):
+        elif _iterable(d) and not isinstance(d, str):
             return d.__class__(map(rec,
                 [x for x in d if not isinstance(d, OrientBinaryObject)]))
         elif isinstance(d, OrientRecordLink):

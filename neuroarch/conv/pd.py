@@ -68,7 +68,7 @@ def as_pandas(nodes=[], edges=[], force_rid=False):
 
             # Remove properties whose name is a string that starts with '_'; they
             # are for special OrientDB purposes:
-            elif isinstance(k, basestring) and k.startswith('_'):
+            elif isinstance(k, str) and k.startswith('_'):
                 del props[k]
             
         # Save the OrientDB class:

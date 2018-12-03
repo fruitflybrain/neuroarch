@@ -335,7 +335,7 @@ class QueryWrapper(object):
         assert isinstance(node_query, QueryString)
         if not edge_class:
             edge_class_str = ''
-        elif isinstance(edge_class, basestring):
+        elif isinstance(edge_class, str):
             edge_class_str = '"%s"' % str(edge_class)
         elif iterable(edge_class):
             edge_class_str = ','.join([str(c) for c in edge_class])
@@ -377,7 +377,7 @@ class QueryWrapper(object):
 
         if not edge_class:
             edge_class_str = ''
-        elif isinstance(edge_class, basestring):
+        elif isinstance(edge_class, str):
             edge_class_str = '"%s"' % edge_class
         elif iterable(edge_class):
             edge_class_str = ','.join([str(c) for c in edge_class])
@@ -879,7 +879,7 @@ class QueryWrapper(object):
 
     def _get_in_edges(self, rid, edge_types):
         in_relationships = ["in('%s') as %s" % (e, e) for e in edge_types]
-        if isinstance(rid, basestring):
+        if isinstance(rid, str):
             rids = [rid]
         query = "select @RID as rid, %s from %s " % (", ".join(in_relationships), ", ".join(rids))
 
@@ -946,7 +946,7 @@ class QueryWrapper(object):
 
             for rid, node in chunk:
                 set_cmd = ["%s = %s" % (k, v.__repr__()) for k, v in node.oRecordData.items() \
-                           if isinstance(v, (basestring, numbers.Number))]
+                           if isinstance(v, (str, numbers.Number))]
                 let_cmd = "let v%s = CREATE VERTEX %s SET " % (num, node._class)
                 node_map[rid] = '$v%s' % num
                 cmd.append(let_cmd + ", ".join(set_cmd))
@@ -1214,8 +1214,8 @@ class QueryWrapper(object):
             elif (not classes) and attrs:
                 attrs_query = " where (" + " and ".join(attrs) + ") "
 
-            #relationships = [direction + "('%s')" % (a if isinstance(a, basestring) else a[0]) for a in args[:t+1]]
-            relationships = [direction + "('%s')" % (x if isinstance(x, basestring) else x[0]) for x in args[t:t+1]]
+            #relationships = [direction + "('%s')" % (a if isinstance(a, str) else a[0]) for a in args[:t+1]]
+            relationships = [direction + "('%s')" % (x if isinstance(x, str) else x[0]) for x in args[t:t+1]]
 
             var = '$q' + str(t+1)
 
@@ -1341,14 +1341,14 @@ class QueryWrapper(object):
             return False
 
 def _q_repr(attr):
-    if isinstance(attr, basestring):
+    if isinstance(attr, str):
         return "'" + str(attr) + "'"
     else:
         return str(attr)
 
 def _list_repr(attr):
     if not(isinstance(attr, list)):
-        if isinstance(attr, (basestring, numbers.Number)):
+        if isinstance(attr, (str, numbers.Number)):
             return [attr]
         else:
             return list(attr)

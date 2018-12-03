@@ -49,7 +49,7 @@ def nk_lpu_to_na(g, lpu_name, circuit_attr='circuit',
     # with IDs that don't overlap with those that already exist:
     max_id = 0
     for id in g.nodes():
-        if isinstance(id, basestring):
+        if isinstance(id, str):
             if id.isdigit():
                 max_id = max(max_id, int(id))
             else:

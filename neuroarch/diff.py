@@ -109,7 +109,7 @@ def take_diff(diff_type, old, new, full_replace):
         elif '->' in op:
             # Renaming an ID requires deletion of the original row and creation
             # of a new row:
-            if isinstance(id, basestring) and op in id:
+            if isinstance(id, str) and op in id:
                 # Extract ID from 'old->new':
                 old_id, new_id = re.search('(.+)%s(.+)$' % op, id).groups()
 
