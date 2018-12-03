@@ -48,7 +48,8 @@ def as_nx(nodes=[], edges=[], force_rid=False):
     for node in nodes:
         # Don't let function alter the original records:
         props = copy.deepcopy(node.oRecordData)
-        for k in props.keys():
+        props_keys = list(props.keys())
+        for k in props_keys:
 
             # Discard binary objects:
             if isinstance(props[k], pyorient.otypes.OrientBinaryObject):
