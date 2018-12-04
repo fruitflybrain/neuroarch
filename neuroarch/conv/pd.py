@@ -47,7 +47,8 @@ def as_pandas(nodes=[], edges=[], force_rid=False):
     for node in nodes:
         # Don't let function alter the original records:
         props = copy.deepcopy(node.oRecordData)
-        for k in props.keys():
+        props_keys = list(props.keys())
+        for k in props_keys:
 
             # Discard binary objects:
             if isinstance(props[k], pyorient.otypes.OrientBinaryObject):
@@ -168,7 +169,7 @@ def pandas_to_orient(client, df_node, df_edge):
         cmd_list = []
         id_list = []
         for i, (id, props) in enumerate(chunk):
-            if props.has_key('class'):
+            if 'class' in props:
                 cls = props['class']
                 del props['class']
             else:
@@ -196,7 +197,7 @@ def pandas_to_orient(client, df_node, df_edge):
         for id, props in chunk:
             from_id = props['out']
             to_id = props['in']
-            if props.has_key('class'):
+            if 'class' in props:
                 cls = props['class']
                 del props['class']
             else:
