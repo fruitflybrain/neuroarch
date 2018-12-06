@@ -142,6 +142,7 @@ class Neuropil(BioNode):
     element_plural = 'Neuropils'
     name = String(nullable=False, unique=False, indexed=True)
     synonyms = EmbeddedList(nullable=True, unique=False, indexed=True)
+    version = String(nullable=True, unique=False, indexed=True)
 
 class Subregion(BioNode):
     element_type = 'Subregion'
@@ -153,6 +154,7 @@ class Tract(BioNode):
     element_type = 'Tract'
     element_plural = 'Tracts'
     name = String(nullable=False, unique=False, indexed=True)
+    version = String(nullable=False, unique=False, indexed=True)
 
 class BioSensor(BioNode):
     element_type = 'BioSensor'
@@ -271,7 +273,7 @@ class LPU(DesignNode):
     element_type = 'LPU'
     element_plural = 'LPUs'
     name = String(nullable=False, unique=False, indexed=True)
-    version = String(nullable=False, unique=False, indexed=True)
+    version = String(nullable=True, unique=False, indexed=True)
 
 class Interface(DesignNode):
     element_type = 'Interface'
@@ -282,7 +284,7 @@ class Pattern(DesignNode):
     element_type = 'Pattern'
     element_plural = 'Patterns'
     name = String(nullable=False, unique=False, indexed=True)
-    version = String(nullable=False, unique=False, indexed=True)
+    version = String(nullable=True, unique=False, indexed=True)
 
 class Port(DesignNode):
     element_type = 'Port'
