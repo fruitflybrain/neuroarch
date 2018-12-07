@@ -486,22 +486,26 @@ def na_lpu_to_nk_new(g):
     assert isinstance(g, nx.MultiDiGraph)
     
     g_new = nx.MultiDiGraph()
-    id_to_label = {}
+    # id_to_label = {}
 
     for id, data in g.nodes(data=True):
-        if data['class'] in ['OmmatidiumModel', 'CartridgeModel', 'ColumnModel',
-                             'Interface', 'LPU']:
+#         if data['class'] in ['OmmatidiumModel', 'CartridgeModel', 'ColumnModel',
+#                              'Interface', 'LPU']:
+#             continue
+        if data['class'] in ['Interface', 'LPU']:
             continue
         
         # Don't clobber the original graph's data:
         data = copy.deepcopy(data)
-        g_new.add_node(data['label'], **data)
-        id_to_label[id] = data['label']
+        # g_new.add_node(data['label'], **data)
+        # id_to_label[id] = data['label']
+        g_new.add_node(id, **data)
 
     # Create synapse edges:
     for from_id, to_id, data in g.edges(data = True):
         data = copy.deepcopy(data)
         if data.pop('class') == 'SendsTo':
-            g_new.add_edge(id_to_label[from_id], id_to_label[to_id], **data)
+            # g_new.add_edge(id_to_label[from_id], id_to_label[to_id], **data)
+            g_new.add_edge(from_id, to_id, **data)
 
     return g_new
