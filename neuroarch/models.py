@@ -155,6 +155,7 @@ class Tract(BioNode):
     element_plural = 'Tracts'
     name = String(nullable=False, unique=False, indexed=True)
     version = String(nullable=False, unique=False, indexed=True)
+    neuropils = EmbeddedSet(nullable=False, unique=False, indexed=True)
 
 class BioSensor(BioNode):
     element_type = 'BioSensor'
@@ -401,6 +402,10 @@ class HasData(Relationship):
 class Requires(Relationship):
     label = 'Requires'
 
+class ArborizesIn(Relationship):
+    label = 'ArborizesIn'
+    kind = EmbeddedSet(linked_to=String(), nullable=False, unique=False, indexed=True)
+
 class QueryResult(Node):
     element_type = 'QueryResult'
     element_plural = 'QueryResults'
@@ -413,6 +418,7 @@ class QueryOwns(Relationship):
 
 class Models(Relationship):
     label = 'Models'
+    version = String(nullable=False, unique=False, indexed=True)
 
 class HasQueryResults(Relationship):
     label = 'HasQueryResults'
