@@ -114,7 +114,7 @@ class QueryWrapper(object):
         result : neuroarch.query.QueryWrapper
             QueryWrapper instance.
         """
-        rids = map(lambda x: x._id, objs).__repr__().replace("'","")
+        rids = list(map(lambda x: x._id, objs)).__repr__().replace("'","")
         return cls(graph, QueryString(str='select from '+rids,
                                       lang='sql'))
 
@@ -249,7 +249,7 @@ class QueryWrapper(object):
 
         if not self._executed:
             self.execute()
-        return self._nodes.values()
+        return list(self._nodes.values())
 
     @property
     def nodes_as_objs(self):
@@ -259,7 +259,7 @@ class QueryWrapper(object):
 
         if not self._executed:
             self.execute()
-        return map(self._graph.get_element, self._nodes)
+        return list(map(self._graph.get_element, self._nodes))
 
     @property
     def edges(self):
@@ -279,7 +279,7 @@ class QueryWrapper(object):
 
         if not self._executed:
             self.execute()
-        return self._edges.values()
+        return list(self._edges.values())
 
     @property
     def edges_as_objs(self):
@@ -289,7 +289,7 @@ class QueryWrapper(object):
 
         if not self._executed:
             self.execute()
-        return map(self._graph.get_element, self._edges)
+        return list(map(self._graph.get_element, self._edges))
 
     def __nonzero__(self):
         return True if self._nodes else False
@@ -843,7 +843,7 @@ class QueryWrapper(object):
 
     def _get_graphs(self, direction, edge_types=None, max_levels=10, max_node_cls=None, cls=None):
         rid_list = self._records_to_list(self.nodes)
-        class_list = self._graph.registry.keys()
+        class_list = list(self._graph.registry.keys())
 
         assert isinstance(max_levels, numbers.Integral) and max_levels >= 0
 
@@ -1227,7 +1227,7 @@ class QueryWrapper(object):
             #dq[var] = "%s = (select from (select expand(%s) from (%s)) %s)" % \
             #            (var, ".".join(relationships),self._disp_query, classes)
         query = "select expand($q) let %s, $q = unionall(%s) " % \
-                (", ".join(q.values()), ",".join(q.keys()[min_depth:max_depth]))
+                (", ".join(q.values()), ",".join(list(q.keys())[min_depth:max_depth]))
         disp_query = ""
         #disp_query = "select expand($q) let %s, $q = unionall(%s) " % \
         #        (", ".join(dq.values()[min_depth:max_depth]), ",".join(dq.keys()[min_depth:max_depth]))
