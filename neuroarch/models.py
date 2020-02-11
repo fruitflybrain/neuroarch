@@ -13,7 +13,7 @@ import numbers
 
 from pyorient.ogm.declarative import declarative_node, \
     declarative_relationship
-from pyorient.ogm.property import EmbeddedMap, EmbeddedSet, String, EmbeddedList, Boolean, Integer
+from pyorient.ogm.property import EmbeddedMap, EmbeddedSet, String, EmbeddedList, Boolean, Integer, Double
 import pyorient.otypes
 
 #import neuroarch.conv.pd as pd
@@ -137,25 +137,32 @@ class DataSource(BioNode):
     name = String(nullable=False, unique=False, indexed=True)
     description = String(nullable=True, unique=False, indexed=False)
 
+class Subsystem(BioNode):
+    element_type = 'Subsystem'
+    element_plural = 'Subsystems'
+    name = String(nullable=False, unique=False, indexed=True)
+    synonyms = EmbeddedList(linked_to=String(), nullable=True, unique=False, indexed=True)
+    version = String(nullable=True, unique=False, indexed=True)
+
 class Neuropil(BioNode):
     element_type = 'Neuropil'
     element_plural = 'Neuropils'
     name = String(nullable=False, unique=False, indexed=True)
-    synonyms = EmbeddedList(nullable=True, unique=False, indexed=True)
+    synonyms = EmbeddedList(linked_to=String(), nullable=True, unique=False, indexed=True)
     version = String(nullable=True, unique=False, indexed=True)
 
 class Subregion(BioNode):
     element_type = 'Subregion'
     element_plural = 'Subregions'
     name = String(nullable=False, unique=False, indexed=True)
-    synonyms = EmbeddedList(nullable=True, unique=False, indexed=True)
+    synonyms = EmbeddedList(linked_to=String(), nullable=True, unique=False, indexed=True)
 
 class Tract(BioNode):
     element_type = 'Tract'
     element_plural = 'Tracts'
     name = String(nullable=False, unique=False, indexed=True)
     version = String(nullable=False, unique=False, indexed=True)
-    neuropils = EmbeddedSet(nullable=False, unique=False, indexed=True)
+    neuropils = EmbeddedSet(linked_to=String(), nullable=True, unique=False, indexed=True)
 
 class BioSensor(BioNode):
     element_type = 'BioSensor'
@@ -194,19 +201,21 @@ class Neuron(BioNode):
     locality = Boolean(nullable=True, unique=False, indexed=True)
     label = String(nullable=True, unique=False, indexed=True)
     uname = String(nullable=True, unique=False, indexed=True)
-    synonyms = EmbeddedList(nullable=True, unique=False, indexed=True)
+    synonyms = EmbeddedList(linked_to=String(), nullable=True, unique=False, indexed=True)
+    referenceId = String(nullable=True, unique=False, indexed=True)
 
 class NeuronTerminal(BioNode):
     element_type = 'NeuronTerminal'
     element_plural = 'NeuronTerminals'
     name = String(nullable=False, unique=False, indexed=True)
-    synonyms = EmbeddedList(nullable=True, unique=False, indexed=True)
-    
+    synonyms = EmbeddedList(linked_to=String(), nullable=True, unique=False, indexed=True)
+
 class Synapse(BioNode):
     element_type = 'Synapse'
     element_plural = 'Synapses'
     name = String(nullable=False, unique=False, indexed=True)
     N = Integer(nullable=True, unique=False, indexed=True)
+    NHP = Integer(nullable = True, unique=False, indexed = True)
     uname = String(nullable=True, unique=False, indexed=True)
 
 class InferredSynapse(BioNode):
@@ -229,10 +238,11 @@ class ArborizationData(BioNode):
     element_type = 'ArborizationData'
     element_plural = 'ArborizationDatas'
     neuropil = String(nullable=True, unique=False, indexed=True)
-    neurite = EmbeddedSet(nullable=True, unique=False, indexed=True)
-    regions = EmbeddedSet(nullable=True, unique=False, indexed=True)
+    neurite = EmbeddedSet(linked_to=String(), nullable=True, unique=False, indexed=True)
+    regions = EmbeddedSet(linked_to=String(), nullable=True, unique=False, indexed=True)
     dendrites = EmbeddedMap(nullable=True, unique=False, indexed=True)
     axons = EmbeddedMap(nullable=True, unique=False, indexed=True)
+    synapses = EmbeddedMap(nullable=True, unique=False, indexed=True)
     name = String(nullable=True, unique=False, indexed=True)
     uname = String(nullable=True, unique=False, indexed=True)
 
@@ -247,19 +257,21 @@ class MorphologyData(BioNode):
     name = String(nullable=False, unique=False, indexed=True)
     morph_type = String(nullable=True, unique=False, indexed=True)
     uname = String(nullable=True, unique=False, indexed=True)
-    x = EmbeddedList(nullable=True, unique=False, indexed=False)
-    y = EmbeddedList(nullable=True, unique=False, indexed=False)
-    z = EmbeddedList(nullable=True, unique=False, indexed=False)
-    r = EmbeddedList(nullable=True, unique=False, indexed=False)
-    parent = EmbeddedList(nullable=True, unique=False, indexed=False)
-    identifier = EmbeddedList(nullable=True, unique=False, indexed=False)
-    sample = EmbeddedList(nullable=True, unique=False, indexed=False)
+    x = EmbeddedList(linked_to=Double(), nullable=True, unique=False, indexed=False)
+    y = EmbeddedList(linked_to=Double(), nullable=True, unique=False, indexed=False)
+    z = EmbeddedList(linked_to=Double(), nullable=True, unique=False, indexed=False)
+    r = EmbeddedList(linked_to=Double(), nullable=True, unique=False, indexed=False)
+    parent = EmbeddedList(linked_to=Integer(), nullable=True, unique=False, indexed=False)
+    identifier = EmbeddedList(linked_to=Integer(), nullable=True, unique=False, indexed=False)
+    sample = EmbeddedList(linked_to=Integer(), nullable=True, unique=False, indexed=False)
+    confidence = EmbeddedList(linked_to=Double(), nullable=True, unique=False, indexed=False)
 
 class NeurotransmitterData(BioNode):
     element_type = 'NeurotransmitterData'
     element_plural = 'NeurotransmitterDatas'
     name = String(nullable=False, unique=False, indexed=True)
-    Transmitters = EmbeddedList(nullable=False, unique=False, indexed=True)
+    Transmitters = EmbeddedList(linked_to=String(), nullable=False, unique=False, indexed=True)
+
 # Circuit design nodes:
 class DesignNode(Node):
     element_type = 'DesignNode'
@@ -388,6 +400,21 @@ class AlphaSynapse(SynapseModel):
 class PowerGPotGPot(SynapseModel):
     element_type = 'PowerGPotGPot'
     element_plural = 'PowerGPotGPots'
+    name = String(nullable=False, unique=False, indexed=True)
+
+class SynapseAMPA(SynapseModel):
+    element_type = 'SynapseAMPA'
+    element_plural = 'SynapseAMPAs'
+    name = String(nullable=False, unique=False, indexed=True)
+
+class SynapseGABA(SynapseModel):
+    element_type = 'SynapseGABA'
+    element_plural = 'SynapseGABAs'
+    name = String(nullable=False, unique=False, indexed=True)
+
+class SynapseNMDA(SynapseModel):
+    element_type = 'SynapseNMDA'
+    element_plural = 'SynapseNMDAs'
     name = String(nullable=False, unique=False, indexed=True)
 
 class Owns(Relationship):

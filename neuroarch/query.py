@@ -1377,7 +1377,7 @@ def _kwargs(kwargs):
                 if kwargs[k]:
                     classes = "where @class in %s" % v
             elif k=='cols':
-                columns = ", ".join(cols)
+                columns = ", ".join(v)
             elif k=='rid':
                 attrs.append("@rid in %s" % v.__repr__().replace("'",""))
             else:
