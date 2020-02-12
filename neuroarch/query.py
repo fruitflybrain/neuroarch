@@ -1381,13 +1381,22 @@ def _kwargs(kwargs):
             elif k=='rid':
                 attrs.append("@rid in %s" % v.__repr__().replace("'",""))
             else:
-                if len(v) == 1 and isinstance(v[0],(str,bytes)) and len(v[0])>=2 and v[0][:2] == '/r':
-                    attrs.append("%s matches '%s'" % (k, v[0][2:]))
-                elif (len(v) ==2 and isinstance(v[0],(str,bytes)) and len(v[0])
-                and v[0] in ['<','>','=','<=','>=']):
-                    attrs.append("%s %s %s" % (k,v[0],v[1]))
+                if len(k) > 1:
+                    if len(v) == 1 and isinstance(v[0],(str,bytes)) and len(v[0])>=2 and v[0][:2] == '/r':
+                        attrs.append("any(%s) matches '%s'" % (','.join(k), v[0][2:]))
+                    elif (len(v) ==2 and isinstance(v[0],(str,bytes)) and len(v[0])
+                    and v[0] in ['<','>','=','<=','>=']):
+                        attrs.append("any(%s) %s %s" % (','.join(k),v[0],v[1]))
+                    else:
+                        attrs.append("any(%s) in %s" % (','.join(k), v))
                 else:
-                    attrs.append("%s in %s" % (k, v))
+                    if len(v) == 1 and isinstance(v[0],(str,bytes)) and len(v[0])>=2 and v[0][:2] == '/r':
+                        attrs.append("%s matches '%s'" % (k, v[0][2:]))
+                    elif (len(v) ==2 and isinstance(v[0],(str,bytes)) and len(v[0])
+                    and v[0] in ['<','>','=','<=','>=']):
+                        attrs.append("%s %s %s" % (k,v[0],v[1]))
+                    else:
+                        attrs.append("%s in %s" % (k, v))
     return classes, attrs, depth, columns
 
 
