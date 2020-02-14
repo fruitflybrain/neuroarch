@@ -11,6 +11,7 @@ Convert a graph between NetworkX and OrientDB
 
 import copy
 import json
+import time
 
 import numpy as np
 import networkx as nx
@@ -19,7 +20,7 @@ import pyorient.otypes
 from .utils import _find_field_types
 from ..utils import byteify, chunks
 
-def as_nx(nodes=[], edges=[], force_rid=False):
+def as_nx(nodes=[], edges=[], force_rid=False, deepcopy = True):
     """
     Converts OrientDB Gremlin query results into a NetworkX MultiDiGraph.
 
@@ -30,14 +31,14 @@ def as_nx(nodes=[], edges=[], force_rid=False):
     edges : list of pyorient.otypes.OrientRecord
         OrientDB edge query results.
     force_rid : bool
-        If True, always use the OrientDB RID as the node identifier in the 
-        returned graph. Otherwise, use 'id' property as the 
+        If True, always use the OrientDB RID as the node identifier in the
+        returned graph. Otherwise, use 'id' property as the
         node identifier if it is present.
 
     Results
     -------
     g : networkx.MultiDiGraph
-        Constructed multigraph containing query results. The OrientDB class of each 
+        Constructed multigraph containing query results. The OrientDB class of each
         node and edge is stored in the 'class' attribute
         of the corresponding nodes and edges in the result `g`.
     """
@@ -45,33 +46,48 @@ def as_nx(nodes=[], edges=[], force_rid=False):
     # XXX what should happen if a node/edge in OrientDB contains a 'class' attribute?
     g = nx.MultiDiGraph()
     rid_to_id = {}
-    for node in nodes:
+    for i, node in enumerate(nodes):
         # Don't let function alter the original records:
-        props = copy.deepcopy(node.oRecordData)
-        props_keys = list(props.keys())
-        for k in props_keys:
-
-            # Discard binary objects:
-            if isinstance(props[k], pyorient.otypes.OrientBinaryObject):
-                del props[k]
-                
-            # Replace record links with their corresponding RIDs:
-            #elif isinstance(props[k], pyorient.otypes.OrientRecordLink):
-            #    props[k] = props[k].get_hash()
-
-            # Remove record links
-            elif isinstance(props[k], pyorient.otypes.OrientRecordLink):
-                del props[k]
-
-            # Remove list of links
-            elif (isinstance(props[k],list) and props[k] and
-                  isinstance(props[k][0], pyorient.otypes.OrientRecordLink)):
-                del props[k]
-
-            # Remove properties whose name is a string that starts with '_'; they
-            # are for special OrientDB purposes:
-            elif isinstance(k, str) and k.startswith('_'):
-                del props[k]
+        if deepcopy:
+            tmp = copy.deepcopy(node.oRecordData)
+        else:
+            tmp = node.oRecordData
+        props = {}
+        for k, v in tmp.items():
+            if isinstance(v, pyorient.otypes.OrientBinaryObject):
+                continue
+            if isinstance(v, pyorient.otypes.OrientRecordLink):
+                continue
+            if (isinstance(v,list) and v and
+                       isinstance(v[0], pyorient.otypes.OrientRecordLink)):
+                continue
+            if isinstance(k, str) and k.startswith('_'):
+                continue
+            props[k] = v
+        # props_keys = list(props.keys())
+        # for k in props_keys:
+        #
+        #     # Discard binary objects:
+        #     if isinstance(props[k], pyorient.otypes.OrientBinaryObject):
+        #         del props[k]
+        #
+        #     # Replace record links with their corresponding RIDs:
+        #     #elif isinstance(props[k], pyorient.otypes.OrientRecordLink):
+        #     #    props[k] = props[k].get_hash()
+        #
+        #     # Remove record links
+        #     elif isinstance(props[k], pyorient.otypes.OrientRecordLink):
+        #         del props[k]
+        #
+        #     # Remove list of links
+        #     elif (isinstance(props[k],list) and props[k] and
+        #           isinstance(props[k][0], pyorient.otypes.OrientRecordLink)):
+        #         del props[k]
+        #
+        #     # Remove properties whose name is a string that starts with '_'; they
+        #     # are for special OrientDB purposes:
+        #     elif isinstance(k, str) and k.startswith('_'):
+        #         del props[k]
 
         # Save the OrientDB class:
         props['class'] = node._class
@@ -82,21 +98,27 @@ def as_nx(nodes=[], edges=[], force_rid=False):
             id = props['id']
             del props['id']
         else:
-            id = node._rid
+            id = props.get('rid', node._rid)
+
         g.add_node(id, **props)
-        rid_to_id[node._rid] = id
+
+        rid_to_id[props.get('rid', node._rid)] = id
 
     for edge in edges:
         # Don't let function alter the original records:
-        props = copy.deepcopy(edge.oRecordData)        
-        in_rid = props['in'].get_hash()
-        out_rid = props['out'].get_hash()
-        del props['in']
-        del props['out']
+        if deepcopy:
+            tmp = copy.deepcopy(edge.oRecordData)
+        else:
+            tmp = edge.oRecordData
+        in_rid = tmp['in'].get_hash()
+        out_rid = tmp['out'].get_hash()
+        # del props['in']
+        # del props['out']
+        props = {k: v for k, v in tmp.items() if k not in ['in', 'out']}
 
         # Save the OrientDB class:
         props['class'] = edge._class
-        g.add_edge(rid_to_id[out_rid], rid_to_id[in_rid], 
+        g.add_edge(rid_to_id[out_rid], rid_to_id[in_rid],
                    **props)
     return g
 
@@ -113,14 +135,14 @@ def orient_to_nx(client, node_query='', edge_query='', force_rid=False):
     edge_query : str
         Gremlin query that returns a collection of edges.
     force_rid : bool
-        If True, always use the OrientDB RID as the node identifier in the 
-        returned graph. Otherwise, use 'id' property as the 
+        If True, always use the OrientDB RID as the node identifier in the
+        returned graph. Otherwise, use 'id' property as the
         node identifier if it is present.
 
     Results
     -------
     g : networkx.MultiDiGraph
-        Constructed multigraph containing query results. The OrientDB class of each 
+        Constructed multigraph containing query results. The OrientDB class of each
         node and edge is stored in the 'class' attribute
         of the corresponding nodes and edges in the result `g`.
     """
@@ -152,7 +174,7 @@ def nx_to_orient(client, g):
     OrientDB class name to use when creating the corresponding nodes and edges
     in the database. If no 'class' attribute is specified, the node and edge
     class names are assumed to be 'V' and 'E', respectively.
-           
+
     Node IDs are discarded upon creation of the new graph.
     """
 

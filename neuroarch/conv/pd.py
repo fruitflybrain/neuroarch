@@ -18,7 +18,7 @@ import pyorient.otypes
 from .utils import _find_field_types
 from ..utils import byteify, chunks
 
-def as_pandas(nodes=[], edges=[], force_rid=False):
+def as_pandas(nodes=[], edges=[], force_rid=False, deepcopy = True):
     """
     Converts OrientDB Gremlin query results into Pandas DataFrame.
 
@@ -29,10 +29,10 @@ def as_pandas(nodes=[], edges=[], force_rid=False):
     edges : list of pyorient.otypes.OrientRecord
         OrientDB edge query results.
     force_rid : bool
-        If True, always use the OrientDB RID as the index value in the 
-        returned DataFrame of node data. Otherwise, use the 'id' property as the 
+        If True, always use the OrientDB RID as the index value in the
+        returned DataFrame of node data. Otherwise, use the 'id' property as the
         index value if it is present.
-      
+
     Returns
     -------
     df_node, df_edge : pandas.DataFrame
@@ -46,32 +46,47 @@ def as_pandas(nodes=[], edges=[], force_rid=False):
     rid_to_id = {}
     for node in nodes:
         # Don't let function alter the original records:
-        props = copy.deepcopy(node.oRecordData)
-        props_keys = list(props.keys())
-        for k in props_keys:
+        if deepcopy:
+            tmp = copy.deepcopy(node.oRecordData)
+        else:
+            tmp = node.oRecordData
+        props = {}
+        for k, v in tmp.items():
+            if isinstance(v, pyorient.otypes.OrientBinaryObject):
+                continue
+            if isinstance(v, pyorient.otypes.OrientRecordLink):
+                continue
+            if (isinstance(v,list) and v and
+                       isinstance(v[0], pyorient.otypes.OrientRecordLink)):
+                continue
+            if isinstance(k, str) and k.startswith('_'):
+                continue
+            props[k] = v
+        # props_keys = list(props.keys())
+        # for k in props_keys:
+        #
+        #     # Discard binary objects:
+        #     if isinstance(props[k], pyorient.otypes.OrientBinaryObject):
+        #         del props[k]
+        #
+        #
+        #     # Replace record links with their corresponding RIDs:
+        #     #elif isinstance(props[k], pyorient.otypes.OrientRecordLink):
+        #     #    props[k] = props[k].get_hash()
+        #     # Remove record links
+        #     elif isinstance(props[k], pyorient.otypes.OrientRecordLink):
+        #         del props[k]
+        #
+        #     # Remove list of links
+        #     elif (isinstance(props[k],list) and props[k] and
+        #           isinstance(props[k][0], pyorient.otypes.OrientRecordLink)):
+        #         del props[k]
+        #
+        #     # Remove properties whose name is a string that starts with '_'; they
+        #     # are for special OrientDB purposes:
+        #     elif isinstance(k, str) and k.startswith('_'):
+        #         del props[k]
 
-            # Discard binary objects:
-            if isinstance(props[k], pyorient.otypes.OrientBinaryObject):
-                del props[k]
-
-            
-            # Replace record links with their corresponding RIDs:
-            #elif isinstance(props[k], pyorient.otypes.OrientRecordLink):
-            #    props[k] = props[k].get_hash()
-            # Remove record links
-            elif isinstance(props[k], pyorient.otypes.OrientRecordLink):
-                del props[k]
-
-            # Remove list of links
-            elif (isinstance(props[k],list) and props[k] and
-                  isinstance(props[k][0], pyorient.otypes.OrientRecordLink)):
-                del props[k]
-
-            # Remove properties whose name is a string that starts with '_'; they
-            # are for special OrientDB purposes:
-            elif isinstance(k, str) and k.startswith('_'):
-                del props[k]
-            
         # Save the OrientDB class:
         props['class'] = node._class
 
@@ -81,19 +96,24 @@ def as_pandas(nodes=[], edges=[], force_rid=False):
             id = props['id']
             del props['id']
         else:
-            id = node._rid
+            id = props.get('rid', node._rid)
         index.append(id)
         props_list.append(props)
 
-        rid_to_id[node._rid] = id
+        rid_to_id[props.get('rid', node._rid)] = id
+        # rid_to_id[node._rid] = id
     df_node = pd.DataFrame.from_records(props_list)
     df_node.index = pd.Index(data=index, name='id')
 
     prop_list = []
     for edge in edges:
         # Don't let function alter the original records:
-        props = copy.deepcopy(edge.oRecordData)
-        
+        if deepcopy:
+            tmp = copy.deepcopy(edge.oRecordData)
+        else:
+            tmp = edge.oRecordData
+
+        props = {k:v for k,v in tmp.items()}
         # Convert record IDs to the IDs assigned to the nodes:
         props['in'] = rid_to_id[props['in'].get_hash()]
         props['out'] = rid_to_id[props['out'].get_hash()]
@@ -122,10 +142,10 @@ def orient_to_pandas(client, node_query='', edge_query='', force_rid=False):
     edge_query : str
         Gremlin query that returns a collection of edges.
     force_rid : bool
-        If True, always use the OrientDB RID as the index value in the 
-        returned DataFrame of node data. Otherwise, use the 'id' property as the 
+        If True, always use the OrientDB RID as the index value in the
+        returned DataFrame of node data. Otherwise, use the 'id' property as the
         index value if it is present.
-    
+
     Returns
     -------
     df_node, df_edge : pandas.DataFrame
@@ -143,7 +163,7 @@ def orient_to_pandas(client, node_query='', edge_query='', force_rid=False):
     else:
         edges = []
     return as_pandas(nodes, edges, force_rid)
-    
+
 def pandas_to_orient(client, df_node, df_edge):
     """
     Loads Pandas DataFrames into OrientDB database.
@@ -154,7 +174,7 @@ def pandas_to_orient(client, df_node, df_edge):
         OrientDB interface.
     df_node, df_edge : pandas.DataFrame
         Tables containing the properties of each node and edge to convert.
-    
+
     Notes
     -----
     Node IDs are discarded upon creation of the new graph

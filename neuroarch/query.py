@@ -14,6 +14,7 @@ import pprint
 import re
 from datetime import datetime
 import json
+import time
 
 from pyorient.ogm import Config, Graph
 
@@ -63,7 +64,7 @@ class QueryWrapper(object):
         If True, extract edges between requested nodes.
     """
 
-    def __init__(self, graph, query, init_nodes=set(), execute=True, edges=True, disp_query=None):
+    def __init__(self, graph, query, init_nodes=set(), execute=True, edges=False, disp_query=None):
         assert isinstance(graph, Graph)
         self._graph = graph
         '''
@@ -91,8 +92,9 @@ class QueryWrapper(object):
             self._nodes = init_nodes
         else:
             self._nodes = self._records_to_dict(init_nodes)
-        self._edges = []
+        self._edges = {}
         self._executed = False
+        self._edge_executed = False
         if execute:
             self.execute(edges)
 
@@ -183,9 +185,9 @@ class QueryWrapper(object):
 
     @classmethod
     def _records_to_list(cls, records):
-        return [r._rid for r in records]
+        return [r.oRecordData['rid'].get_hash() if 'rid' in r.oRecordData else r._rid for r in records]
 
-    def get_as(self, as_type='df', force_rid=False):
+    def get_as(self, as_type='df', force_rid=False, edges = True, edge_class = '', deepcopy = False):
         """
         Return view of query results.
 
@@ -206,10 +208,14 @@ class QueryWrapper(object):
             Query results in specified format.
         """
 
+        if edges:
+            self.execute_edges(edge_class = edge_class)
+
         if as_type=='df':
-            return pd.as_pandas(self.nodes, self.edges, force_rid)
+            return pd.as_pandas(self.nodes, self.edges, force_rid, deepcopy = deepcopy)
         if as_type=='nx':
-            return nx.as_nx(self.nodes, self.edges, force_rid)
+            tmp = nx.as_nx(self.nodes, self.edges, force_rid, deepcopy = deepcopy)
+            return tmp
         if as_type=='obj':
             return self._graph.elements_from_records(self.nodes),\
                 self._graph.elements_from_records(self.edges)
@@ -481,15 +487,37 @@ class QueryWrapper(object):
 
         # Don't execute query if results have already been cached:
         if self._executed and not force:
-            return
+            if self._edge_executed:
+                return
+            else:
+                if edges:
+                    self._edges = \
+                        self._records_to_dict(self._execute_query(self._edge_query_from_node_rids(self._nodes.keys())))
+                    self._edge_executed = True
+                else:
+                    return
         else:
             self._nodes = e(self._query)
             if edges:
-                self._edges = \
-                    self._records_to_dict(self._execute_query(self._edge_query_from_node_rids(self._nodes.keys())))
+                if not self._edge_executed:
+                    self._edges = \
+                        self._records_to_dict(self._execute_query(self._edge_query_from_node_rids(self._nodes.keys())))
+                    self._edge_executed = True
             if connect:
                 self._connect_to_query_result_node(1)
             self._executed = True
+
+    def execute_edges(self, edge_class = ''):
+        if self._executed:
+            if self._edge_executed:
+                return
+            else:
+                self._edges = \
+                    self._records_to_dict(self._execute_query(
+                        self._edge_query_from_node_rids(self._nodes.keys(), edge_class = edge_class)))
+                self._edge_executed = True
+        else:
+            self.execute(edges = True)
 
     def clear(self):
         """
@@ -714,7 +742,7 @@ class QueryWrapper(object):
             res = [record.oRecordData['rid'].get_hash() for record in res]
         return res
 
-    def get_data(self, as_type='df', **kwargs):
+    def get_data(self, as_type='df', edges = True, deepcopy = True, **kwargs):
         rid_list = self._records_to_list(self.nodes)
         classes, attrs, depth, columns = _kwargs(kwargs)
         attrs_query = ""
@@ -727,7 +755,9 @@ class QueryWrapper(object):
         query = "select %s from (select expand(out('HasData')) from [%s]) %s %s" % \
                     (columns, ", ".join(rid_list), classes, attrs_query)
 
-        return QueryWrapper(self._graph, QueryString(query, 'sql')).get_as(as_type)
+        return QueryWrapper(self._graph, QueryString(query, 'sql')).get_as(
+                                    as_type, edges = edges, deepcopy = deepcopy)
+
 
     def get_data_qw(self, as_type='df', **kwargs):
         rid_list = self._records_to_list(self.nodes)
@@ -1226,6 +1256,8 @@ class QueryWrapper(object):
 
             #dq[var] = "%s = (select from (select expand(%s) from (%s)) %s)" % \
             #            (var, ".".join(relationships),self._disp_query, classes)
+
+        # _, _, _, columns = _kwargs(kwargs) #wrong
         query = "select expand($q) let %s, $q = unionall(%s) " % \
                 (", ".join(q.values()), ",".join(list(q.keys())[min_depth:max_depth]))
         disp_query = ""
