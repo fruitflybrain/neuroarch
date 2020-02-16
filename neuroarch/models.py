@@ -135,6 +135,7 @@ class DataSource(BioNode):
     element_type = 'DataSource'
     element_plural = 'DataSources'
     name = String(nullable=False, unique=False, indexed=True)
+    version = String(nullable=True, unique=False, indexed=True)
     description = String(nullable=True, unique=False, indexed=False)
 
 class Subsystem(BioNode):
