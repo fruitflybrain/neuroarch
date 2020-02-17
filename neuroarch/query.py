@@ -353,9 +353,9 @@ class QueryWrapper(object):
                 'x.intersect(y)'
             return QueryString(str=s, lang='gremlin')
         elif node_query.lang == 'sql':
-            s = ('select expand($c) let $a = (select expand(oute(%s)) from (%s)),'
-                 '$b = (select expand(ine(%s)) from (%s)),'
-                 '$c = intersect($a,$b)') % (str(edge_class_str),
+            s = ("""select expand($c) let $a = (select expand(oute(%s)) from (%s)),"""
+                 """$b = (select expand(ine(%s)) from (%s)),"""
+                 """$c = intersect($a,$b)""") % (str(edge_class_str),
                                              str(node_query), str(edge_class_str),
                                              str(node_query))
             return QueryString(str=s, lang='sql')
@@ -391,9 +391,9 @@ class QueryWrapper(object):
             raise ValueError('invalid edge class')
         assert iterable(node_rids)
         rid_str = ','.join(['%s' % rid for rid in node_rids])
-        s = ('select expand($c) let $a = (select expand(oute(%s)) from [%s]),'
-             '$b = (select expand(ine(%s)) from [%s]),'
-             '$c = intersect($a,$b)') % (str(edge_class_str), str(rid_str),
+        s = ("""select expand($c) let $a = (select expand(oute(%s)) from [%s]),"""
+             """$b = (select expand(ine(%s)) from [%s]),"""
+             """$c = intersect($a,$b)""") % (str(edge_class_str), str(rid_str),
                                          str(edge_class_str), str(rid_str))
         return QueryString(str=s, lang='sql')
 
@@ -577,8 +577,8 @@ class QueryWrapper(object):
         rid_list = self._records_to_list(self.nodes)
         classes, attrs, depth, columns = _kwargs(kwargs)
 
-        relationships = ["%s('owns')" % direction]*levels
-        query = "select %s from (select expand(%s) from [%s]) %s" % \
+        relationships = ["""%s('owns')""" % direction]*levels
+        query = """select %s from (select expand(%s) from [%s]) %s""" % \
                     (columns, '.'.join(relationships), ", ".join(rid_list), classes)
         '''
         disp_query = "select %s from (select expand(%s) from (%s)) %s" % \
@@ -650,7 +650,7 @@ class QueryWrapper(object):
             attrs_query = " where (" + " and ".join(attrs) + ") "
 
 
-        query = "select %s from (traverse %s('owns') from [%s] %s) %s %s" %\
+        query = """select %s from (traverse %s('owns') from [%s] %s) %s %s" %\
                 (columns, direction, ", ".join(rid_list), depth, classes, attrs_query)
         '''
         disp_query = "select %s from (traverse %s('owns') from (%s) %s) %s %s" %\
@@ -802,7 +802,7 @@ class QueryWrapper(object):
             q['$q'] = q_str.format(var = var, rids = ", ".join(rid_list), classes = classes, filters = "")
             #dq['$q'] = dq_str.format(var = var, disp_query = self._disp_query, classes = classes, filters = "")
 
-        query = "select %s from (select expand($a) let %s, $a = intersect(%s))" % \
+        query = """select %s from (select expand($a) let %s, $a = intersect(%s))""" % \
                     (columns, ", ".join(q.values()), ", ".join(q.keys()) )
         '''
         disp_query = "select %s from (select expand($a) let %s, $a = intersect(%s))" % \
@@ -1258,7 +1258,7 @@ class QueryWrapper(object):
             #            (var, ".".join(relationships),self._disp_query, classes)
 
         # _, _, _, columns = _kwargs(kwargs) #wrong
-        query = "select expand($q) let %s, $q = unionall(%s) " % \
+        query = """ select expand($q) let %s, $q = unionall(%s) """ % \
                 (", ".join(q.values()), ",".join(list(q.keys())[min_depth:max_depth]))
         disp_query = ""
         #disp_query = "select expand($q) let %s, $q = unionall(%s) " % \
@@ -1415,7 +1415,7 @@ def _kwargs(kwargs):
             else:
                 if len(k) > 1:
                     if len(v) == 1 and isinstance(v[0],(str,bytes)) and len(v[0])>=2 and v[0][:2] == '/r':
-                        attrs.append("any(%s) matches '%s'" % (','.join(k), v[0][2:]))
+                        attrs.append(""" any(%s) matches "%s" """ % (','.join(k), v[0][2:]))
                     elif (len(v) ==2 and isinstance(v[0],(str,bytes)) and len(v[0])
                     and v[0] in ['<','>','=','<=','>=']):
                         attrs.append("any(%s) %s %s" % (','.join(k),v[0],v[1]))
@@ -1423,7 +1423,7 @@ def _kwargs(kwargs):
                         attrs.append("any(%s) in %s" % (','.join(k), v))
                 else:
                     if len(v) == 1 and isinstance(v[0],(str,bytes)) and len(v[0])>=2 and v[0][:2] == '/r':
-                        attrs.append("%s matches '%s'" % (k, v[0][2:]))
+                        attrs.append("""%s matches "%s" """ % (k, v[0][2:]))
                     elif (len(v) ==2 and isinstance(v[0],(str,bytes)) and len(v[0])
                     and v[0] in ['<','>','=','<=','>=']):
                         attrs.append("%s %s %s" % (k,v[0],v[1]))
