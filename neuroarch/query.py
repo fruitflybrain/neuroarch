@@ -650,7 +650,7 @@ class QueryWrapper(object):
             attrs_query = " where (" + " and ".join(attrs) + ") "
 
 
-        query = """select %s from (traverse %s('owns') from [%s] %s) %s %s" %\
+        query = """select %s from (traverse %s('owns') from [%s] %s) %s %s""" %\
                 (columns, direction, ", ".join(rid_list), depth, classes, attrs_query)
         '''
         disp_query = "select %s from (traverse %s('owns') from (%s) %s) %s %s" %\
