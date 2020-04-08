@@ -474,8 +474,6 @@ class QueryWrapper(object):
                 result = self._records_to_dict(self._execute_query(q))
             else:
                 if len(q) == 3:
-                    print(q[1])
-                    print(q[2])
                     r1 = e(q[1])
                     r2 = e(q[2])
 
@@ -1413,8 +1411,6 @@ class QueryWrapper(object):
 
     @class_method_timer
     def __sub__(self, other):
-        print(self)
-        print(other)
         assert isinstance(other, self.__class__)
         return self.__class__(self._graph, ('-', self._query, other._query),
                               init_nodes=self._dict_difference(self._nodes, other._nodes),
@@ -1423,8 +1419,6 @@ class QueryWrapper(object):
 
     @class_method_timer
     def __and__(self, other):
-        print(self)
-        print(other)
         assert isinstance(other, self.__class__)
         return self.__class__(self._graph, ('&', self._query, other._query),
                               init_nodes=self._dict_intersection(self._nodes, other._nodes),
