@@ -204,6 +204,7 @@ class Neuron(BioNode):
     uname = String(nullable=True, unique=False, indexed=True)
     synonyms = EmbeddedList(linked_to=String(), nullable=True, unique=False, indexed=True)
     referenceId = String(nullable=True, unique=False, indexed=True)
+    info = EmbeddedMap(nullable=True, unique=False, indexed=True)
 
 class NeuronTerminal(BioNode):
     element_type = 'NeuronTerminal'
@@ -238,14 +239,12 @@ class PhotoreceptorCell(Neuron):
 class ArborizationData(BioNode):
     element_type = 'ArborizationData'
     element_plural = 'ArborizationDatas'
-    neuropil = String(nullable=True, unique=False, indexed=True)
-    neurite = EmbeddedSet(linked_to=String(), nullable=True, unique=False, indexed=True)
-    regions = EmbeddedSet(linked_to=String(), nullable=True, unique=False, indexed=True)
     dendrites = EmbeddedMap(nullable=True, unique=False, indexed=True)
     axons = EmbeddedMap(nullable=True, unique=False, indexed=True)
     synapses = EmbeddedMap(nullable=True, unique=False, indexed=True)
     name = String(nullable=True, unique=False, indexed=True)
     uname = String(nullable=True, unique=False, indexed=True)
+    type = String(nullable=True, unique=False, indexed=True)
 
 class GeneticData(BioNode):
     element_type = 'GeneticData'
@@ -433,6 +432,8 @@ class Requires(Relationship):
 class ArborizesIn(Relationship):
     label = 'ArborizesIn'
     kind = EmbeddedSet(linked_to=String(), nullable=False, unique=False, indexed=True)
+    N_axons = Integer(nullable=True, unique=False, indexed=True)
+    N_dendrites = Integer(nullable=True, unique=False, indexed=True)
 
 class QueryResult(Node):
     element_type = 'QueryResult'
