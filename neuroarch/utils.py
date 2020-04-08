@@ -11,6 +11,8 @@ Utility functions.
 
 import itertools
 import re
+from functools import wraps
+import time
 
 import numpy as np
 from numpy import iterable
@@ -95,7 +97,7 @@ def chunks(it, n):
     """
     Generator that returns chunks of size `n` of an iterable `it`.
     """
-    
+
     it = iter(it)
     while True:
         p = list(itertools.islice(it, n))
@@ -117,7 +119,7 @@ def get_cluster_ids(client):
 def rand_bin_matrix(sh, N, dtype=np.double):
     """
     Generate a rectangular binary matrix with randomly distributed nonzero entries.
-    
+
     Parameters
     ----------
     sh : tuple
@@ -159,3 +161,22 @@ def byteify(input):
         return input.encode('utf-8')
     else:
         return input
+
+def class_method_timer(func):
+    @wraps(func)
+    def wrapper_timer(self, *args, **kwargs):
+        debug = False
+        if 'debug' in kwargs:
+            debug = True
+        else:
+            if self.debug:
+                debug = True
+        if debug:
+            start_time = time.time()
+        value = func(self, *args, **kwargs)
+        if debug:
+            end_time = time.time()
+            run_time = end_time - start_time
+            print("Finished '{}' in {} secs".format(func.__name__, run_time))
+        return value
+    return wrapper_timer

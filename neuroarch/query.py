@@ -18,7 +18,7 @@ import time
 
 from pyorient.ogm import Config, Graph
 
-from neuroarch.utils import is_rid, iterable, chunks
+from neuroarch.utils import is_rid, iterable, chunks, class_method_timer
 from neuroarch.diff import diff_nodes, diff_edges
 from neuroarch.apply_diff import apply_node_diff, apply_edge_diff
 
@@ -64,7 +64,9 @@ class QueryWrapper(object):
         If True, extract edges between requested nodes.
     """
 
-    def __init__(self, graph, query, init_nodes=set(), execute=True, edges=False, disp_query=None):
+    @class_method_timer
+    def __init__(self, graph, query, init_nodes=set(), execute=True, executed = False,
+                 edges=False, disp_query=None, debug = False):
         assert isinstance(graph, Graph)
         self._graph = graph
         '''
@@ -93,14 +95,14 @@ class QueryWrapper(object):
         else:
             self._nodes = self._records_to_dict(init_nodes)
         self._edges = {}
-        self._executed = False
+        self._executed = executed
         self._edge_executed = False
+        self.debug = debug
         if execute:
             self.execute(edges)
 
-
     @classmethod
-    def from_objs(cls, graph, objs):
+    def from_objs(cls, graph, objs, debug = False):
         """
         Construct a QueryWrapper given a list of OGM objects
 
@@ -118,10 +120,11 @@ class QueryWrapper(object):
         """
         rids = list(map(lambda x: x._id, objs)).__repr__().replace("'","")
         return cls(graph, QueryString(str='select from '+rids,
-                                      lang='sql'))
+                                      lang='sql'),
+                   debug = debug)
 
     @classmethod
-    def from_tag(self, graph,tag):
+    def from_tag(self, graph,tag, debug = False):
         """
         """
         obj = graph.QueryResults.query(tag=tag).all()
@@ -136,7 +139,7 @@ class QueryWrapper(object):
         return output
 
     @classmethod
-    def from_rids(cls, graph, *rid_list):
+    def from_rids(cls, graph, *rid_list, **kwargs):
         """
         Construct a QueryWrapper given a list of OrientDB RIDs.
 
@@ -155,10 +158,11 @@ class QueryWrapper(object):
 
         assert all([is_rid(rid) for rid in rid_list])
         return cls(graph, QueryString(str='select from [%s]' % ','.join(rid_list),
-                                      lang='sql'))
+                                      lang='sql'),
+                   debug = kwargs.get('debug', False))
 
     @classmethod
-    def from_elements(cls, graph, *obj_list):
+    def from_elements(cls, graph, *obj_list, **kwargs):
         """
         Construct a QueryWrapper given a list of pyorient OGM objects.
 
@@ -177,7 +181,8 @@ class QueryWrapper(object):
 
         return cls(graph, QueryString(str='select from [%s]' % \
                                       ','.join([obj._id for obj in obj_list]),
-                                      lang='sql'))
+                                      lang='sql'),
+                   debug = kwargs.get('debug', False))
 
     @classmethod
     def _records_to_dict(cls, records):
@@ -187,6 +192,7 @@ class QueryWrapper(object):
     def _records_to_list(cls, records):
         return [r.oRecordData['rid'].get_hash() if 'rid' in r.oRecordData else r._rid for r in records]
 
+    @class_method_timer
     def get_as(self, as_type='df', force_rid=False, edges = True, edge_class = '', deepcopy = False):
         """
         Return view of query results.
@@ -446,7 +452,7 @@ class QueryWrapper(object):
                 queryObj=queryObj+obj
         return queryObj.traverse_owned_by_get_toplevel()
 
-
+    @class_method_timer
     def execute(self, edges=False, force=False, connect=False):
         """
         Execute the query.
@@ -468,6 +474,8 @@ class QueryWrapper(object):
                 result = self._records_to_dict(self._execute_query(q))
             else:
                 if len(q) == 3:
+                    print(q[1])
+                    print(q[2])
                     r1 = e(q[1])
                     r2 = e(q[2])
 
@@ -498,6 +506,7 @@ class QueryWrapper(object):
                     return
         else:
             self._nodes = e(self._query)
+
             if edges:
                 if not self._edge_executed:
                     self._edges = \
@@ -507,6 +516,7 @@ class QueryWrapper(object):
                 self._connect_to_query_result_node(1)
             self._executed = True
 
+    @class_method_timer
     def execute_edges(self, edge_class = ''):
         if self._executed:
             if self._edge_executed:
@@ -530,7 +540,7 @@ class QueryWrapper(object):
 
         # XXX what should be done with the query_result node in the db?
 
-
+    @class_method_timer
     def owns(self, levels=1, **kwargs):
         """
         Retrieve all nodes at a specified number of levels below the current query.
@@ -551,6 +561,7 @@ class QueryWrapper(object):
 
         return self._own('out', levels, kwargs)
 
+    @class_method_timer
     def owned_by(self, levels=1, **kwargs):
         """
         Retrieve all nodes at a specified number of levels above the current query.
@@ -585,8 +596,9 @@ class QueryWrapper(object):
                     (columns, '.'.join(relationships), self._disp_query, classes)
         '''
         disp_query = ''
-        return self.__class__(self._graph, QueryString(query,"sql"), disp_query=disp_query)
+        return self.__class__(self._graph, QueryString(query,"sql"), disp_query=disp_query, debug = self.debug)
 
+    @class_method_timer
     def find_matching_ports_from_selector(self, other):
         try:
             other_df = other.get_as('df')[0][['selector']].to_dict(orient='index').values()
@@ -596,6 +608,7 @@ class QueryWrapper(object):
             sels = []
         return self.traverse_owns(selector=sels)
 
+    @class_method_timer
     def traverse_owns(self, **kwargs):
         """
         Retrieve all traversed nodes down to a specified number of levels below the current query.
@@ -616,6 +629,7 @@ class QueryWrapper(object):
 
         return self._traverse('out', kwargs)
 
+    @class_method_timer
     def traverse_owned_by(self, **kwargs):
         """
         Retrieve all traversed nodes up to a specified number of levels above the current query.
@@ -657,7 +671,8 @@ class QueryWrapper(object):
                 (columns, direction, self._disp_query, depth, classes, attrs_query)
         '''
         disp_query = ''
-        return self.__class__(self._graph, QueryString(query, "sql"), disp_query=disp_query)
+        return self.__class__(self._graph, QueryString(query, "sql"), disp_query=disp_query,
+                              debug = self.debug)
 
     '''
     def traverse_owned_by_get_toplevel(self):
@@ -694,6 +709,7 @@ class QueryWrapper(object):
         return toplevel
     '''
 
+    @class_method_timer
     def traverse_owned_by_get_toplevel(self):
         """
         Find associated LPU or Pattern that of the nodes encompassed by a query object.
@@ -713,13 +729,16 @@ class QueryWrapper(object):
             for n in obj.nodes_as_objs:
                 query = "select expand($c) let $a=(select from (traverse out('owns') from %s while $depth <= 10))" % (n._id)
                 query += ", $b=(select from [%s]), $c=intersect($a,$b)" % (", ".join(rid_list))
-                toplevel[c][n.name] = self.__class__(self._graph, QueryString(query,'sql'))
+                toplevel[c][n.name] = self.__class__(self._graph, QueryString(query,'sql'), debug = self.debug)
 
 
         return toplevel
 
-
+    @class_method_timer
     def get_data_rids(self, as_type='df', **kwargs):
+        if len(self._nodes) == 0:
+            return []
+
         rid_list = self._records_to_list(self.nodes)
         classes, attrs, depth, columns = _kwargs(kwargs)
         attrs_query = ""
@@ -742,8 +761,17 @@ class QueryWrapper(object):
             res = [record.oRecordData['rid'].get_hash() for record in res]
         return res
 
+    @class_method_timer
     def get_data(self, as_type='df', edges = True, deepcopy = True, **kwargs):
         rid_list = self._records_to_list(self.nodes)
+        if len(rid_list) == 0:
+            if as_type == 'df':
+                return pd.pd.DataFrame()
+            elif as_type == 'obj':
+                return ([],[])
+            elif as_type == 'nx':
+                return nx.nx.MultiDiGraph()
+
         classes, attrs, depth, columns = _kwargs(kwargs)
         attrs_query = ""
         if attrs and classes:
@@ -755,12 +783,21 @@ class QueryWrapper(object):
         query = "select %s from (select expand(out('HasData')) from [%s]) %s %s" % \
                     (columns, ", ".join(rid_list), classes, attrs_query)
 
-        return QueryWrapper(self._graph, QueryString(query, 'sql')).get_as(
+        return QueryWrapper(self._graph, QueryString(query, 'sql'), debug = self.debug).get_as(
                                     as_type, edges = edges, deepcopy = deepcopy)
 
 
+    @class_method_timer
     def get_data_qw(self, as_type='df', **kwargs):
         rid_list = self._records_to_list(self.nodes)
+        if len(rid_list) == 0:
+            if as_type == 'df':
+                return pd.pd.DataFrame()
+            elif as_type == 'obj':
+                return ([],[])
+            elif as_type == 'nx':
+                return nx.nx.MultiDiGraph()
+
         classes, attrs, depth, columns = _kwargs(kwargs)
         attrs_query = ""
         if attrs and classes:
@@ -772,17 +809,20 @@ class QueryWrapper(object):
         query = "select %s from (select expand(out('HasData')) from [%s]) %s %s" % \
                     (columns, ", ".join(rid_list), classes, attrs_query)
 
-        return QueryWrapper(self._graph, QueryString(query, 'sql'))
+        return QueryWrapper(self._graph, QueryString(query, 'sql'), debug = self.debug)
 
     def query(self, **kwargs):
         self.has(**kwargs)
 
+    @class_method_timer
     def has(self, **kwargs):
         if not kwargs:
             return self
 
         q={}
         rid_list = self._records_to_list(self.nodes)
+        if not len(rid_list):
+            return self
         classes, attrs, depth, columns = _kwargs(kwargs)
 
         q_str = "{var} = (select expand(rid) from (select distinct(traversedvertex(0)) as rid \
@@ -810,7 +850,7 @@ class QueryWrapper(object):
         '''
         disp_query = ''
         #print disp_query
-        return self.__class__(self._graph, QueryString(query,"sql"), disp_query=disp_query)
+        return self.__class__(self._graph, QueryString(query,"sql"), disp_query=disp_query, debug = self.debug)
 
 
     def _check_tags(self, tag):
@@ -819,6 +859,7 @@ class QueryWrapper(object):
         results = self._graph.client.command(query)
         return self._records_to_list(results)
 
+    @class_method_timer
     def tag_query_result_node(self, tag, permanent_flag, **kwargs):
         """
         Create a new `QueryResult` node and connect it to all of the cached
@@ -905,7 +946,7 @@ class QueryWrapper(object):
                 (", ".join(relationships), self._disp_query, max_levels, while_classes, where_classes)
         '''
 
-        return self.__class__(self._graph, QueryString(query, "sql"), disp_query=disp_query)
+        return self.__class__(self._graph, QueryString(query, "sql"), disp_query=disp_query, debug = self.debug)
 
     def _get_in_edges(self, rid, edge_types):
         in_relationships = ["in('%s') as %s" % (e, e) for e in edge_types]
@@ -1111,7 +1152,8 @@ class QueryWrapper(object):
         res = result_rids+rid_list
         return self.from_rids(self._graph, *res)
 
-    def post_synaptic_neurons(self, N=None, rel='>', include_inferred=True):
+    @class_method_timer
+    def post_synaptic_neurons(self, N=None, rel='>', include_inferred=True, high_prob = False):
         # N represents number of synapses
         #    if N is none, will return all post synaptic neurons
         #    else, it will only return postsynaptic neurons where the number of synapses
@@ -1119,11 +1161,15 @@ class QueryWrapper(object):
         # rel can be '>'(default),'<','='
         synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
         if N:
-            return self.gen_traversal_out(['SendsTo', synapse_classes, {'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
+            return self.gen_traversal_out(['SendsTo', synapse_classes, {'NHP' if high_prob else 'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
         else:
-            return self.gen_traversal_out(['SendsTo', synapse_classes],['SendsTo','Neuron'], min_depth=2)
+            if high_prob:
+                return self.gen_traversal_out(['SendsTo', synapse_classes, {'NHP':(rel,0)}],['SendsTo','Neuron'], min_depth=2)
+            else:
+                return self.gen_traversal_out(['SendsTo', synapse_classes],['SendsTo','Neuron'], min_depth=2)
 
-    def pre_synaptic_neurons(self, N=None, rel='>', include_inferred=True):
+    @class_method_timer
+    def pre_synaptic_neurons(self, N=None, rel='>', include_inferred=True, high_prob = False):
         # N represents number of synapses
         #    if N is none, will return all post synaptic neurons
         #    else, it will only return postsynaptic neurons where the number of synapses
@@ -1131,10 +1177,60 @@ class QueryWrapper(object):
         # rel can be '>'(default),'<','='
         synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
         if N:
-            return self.gen_traversal_in(['SendsTo', synapse_classes,{'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
+            return self.gen_traversal_in(['SendsTo', synapse_classes,{'NHP' if high_prob else 'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
         else:
-            return self.gen_traversal_in(['SendsTo', synapse_classes],['SendsTo', 'Neuron'], min_depth=2)
+            if high_prob:
+                return self.gen_traversal_in(['SendsTo', synapse_classes, {'NHP':(rel,0)}],['SendsTo','Neuron'], min_depth=2)
+            else:
+                return self.gen_traversal_in(['SendsTo', synapse_classes],['SendsTo','Neuron'], min_depth=2)
 
+    @class_method_timer
+    def pre_synaptic_neurons_with_synapse_count(self, N=None, rel='>', include_inferred=True, high_prob = False):
+        synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
+        if N:
+            pre_syn = self.gen_traversal_in(['SendsTo', synapse_classes, {'NHP' if high_prob else 'N':(rel,N)}], min_depth=1)
+        else:
+            if high_prob:
+                pre_syn = self.gen_traversal_in(['SendsTo', synapse_classes, {'NHP':(rel,0)}], min_depth=1)
+            else:
+                pre_syn = self.gen_traversal_in(['SendsTo', synapse_classes], min_depth=1)
+        pre_neuron_list = []
+        synapse_rid_to_N = {s._id: s.NHP if high_prob else s.N for s in pre_syn.get_as('obj')[0]}
+        synapse_rids = ','.join(self._records_to_list(pre_syn.nodes))
+        n_rec=self._graph.client.command("""SELECT $path from (traverse in('SendsTo') FROM [{}] maxdepth 1)""".format(synapse_rids))
+        ntos = {n[1]:n[0] for n in [re.findall('\#\d+\:\d+', x.oRecordData['$path']) for x in n_rec] if len(n)==2}
+        neuron_rids = list(set(ntos.keys()))
+        neurons = self.from_rids(self._graph, *neuron_rids)
+        neuron_rid_to_obj = {n._id: n for n in neurons.get_as('obj')[0]}
+
+        for neu_id, syn_id in ntos.items():
+            pre_neuron_list.append((neuron_rid_to_obj[neu_id], synapse_rid_to_N[syn_id]))
+        return pre_neuron_list
+
+    @class_method_timer
+    def post_synaptic_neurons_with_synapse_count(self, N=None, rel='>', include_inferred=True, high_prob = False):
+        synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
+        if N:
+            post_syn = self.gen_traversal_out(['SendsTo', synapse_classes, {'NHP' if high_prob else 'N':(rel,N)}], min_depth=1)
+        else:
+            if high_prob:
+                post_syn = self.gen_traversal_in(['SendsTo', synapse_classes, {'NHP':(rel,0)}], min_depth=1)
+            else:
+                post_syn = self.gen_traversal_in(['SendsTo', synapse_classes], min_depth=1)
+        post_neuron_list = []
+        synapse_rid_to_N = {s._id: s.NHP if high_prob else s.N for s in post_syn.get_as('obj')[0]}
+        synapse_rids = ','.join(self._records_to_list(post_syn.nodes))
+        n_rec=self._graph.client.command("""SELECT $path from (traverse in('SendsTo') FROM [{}] maxdepth 1)""".format(synapse_rids))
+        ntos = {n[1]:n[0] for n in [re.findall('\#\d+\:\d+', x.oRecordData['$path']) for x in n_rec] if len(n)==2}
+        neuron_rids = list(set(ntos.keys()))
+        neurons = self.from_rids(self._graph, *neuron_rids)
+        neuron_rid_to_obj = {n._id: n for n in neurons.get_as('obj')[0]}
+
+        for neu_id, syn_id in ntos.items():
+            post_neuron_list.append((neuron_rid_to_obj[neu_id], synapse_rid_to_N[syn_id]))
+        return post_neuron_list
+
+    @class_method_timer
     def get_connecting_synapses(self, N=None, rel='>',include_inferred=True):
         synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
         if N:
@@ -1144,6 +1240,7 @@ class QueryWrapper(object):
             return self.gen_traversal_out(['SendsTo', synapse_classes], min_depth=1) & \
                 self.gen_traversal_in(['SendsTo', synapse_classes], min_depth=1)
 
+    @class_method_timer
     def add_connecting_synapses(self, N=None, rel='>',include_inferred=True):
         synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
         if N:
@@ -1161,9 +1258,11 @@ class QueryWrapper(object):
     def get_connected_ports(self):
         return self.gen_traversal_out(['SendsTo', 'Port']) + self.gen_traversal_in(['SendsTo', 'Port'])
 
+    @class_method_timer
     def gen_traversal_in(self, *args, **kwargs):
         return self._gen_traversal('in', args, kwargs)
 
+    @class_method_timer
     def gen_traversal_out(self, *args, **kwargs):
         return self._gen_traversal('out', args, kwargs)
 
@@ -1264,7 +1363,7 @@ class QueryWrapper(object):
         #disp_query = "select expand($q) let %s, $q = unionall(%s) " % \
         #        (", ".join(dq.values()[min_depth:max_depth]), ",".join(dq.keys()[min_depth:max_depth]))
 
-        return self.__class__(self._graph, QueryString(query, "sql"), disp_query=disp_query)
+        return self.__class__(self._graph, QueryString(query, "sql"), disp_query=disp_query, debug = self.debug)
 
 
     def export_graph(self, graph_name, as_type='df', stored_as='gpickle', compression=''):
@@ -1302,35 +1401,47 @@ class QueryWrapper(object):
                 return True
         return False
 
-
+    @class_method_timer
     def __or__(self, other):
         assert isinstance(other, self.__class__)
         return self.__class__(self._graph, ('|', self._query, other._query),
                               init_nodes=self._dict_union(self._nodes, other._nodes),
-                              disp_query = '')#'(%s\n|\n%s)' %(self._disp_query, other._disp_query))
+                              executed = True,
+                              disp_query = '', debug = (self.debug | other.debug))#'(%s\n|\n%s)' %(self._disp_query, other._disp_query))
 
     __add__ = __or__
 
+    @class_method_timer
     def __sub__(self, other):
+        print(self)
+        print(other)
         assert isinstance(other, self.__class__)
         return self.__class__(self._graph, ('-', self._query, other._query),
                               init_nodes=self._dict_difference(self._nodes, other._nodes),
-                              disp_query = '')#'(%s\n-\n%s)' %(self._disp_query, other._disp_query))
+                              executed = True,
+                              disp_query = '', debug = (self.debug | other.debug))#'(%s\n-\n%s)' %(self._disp_query, other._disp_query))
 
+    @class_method_timer
     def __and__(self, other):
+        print(self)
+        print(other)
         assert isinstance(other, self.__class__)
         return self.__class__(self._graph, ('&', self._query, other._query),
                               init_nodes=self._dict_intersection(self._nodes, other._nodes),
-                              disp_query = '')#'(%s\n&\n%s)' %(self._disp_query, other._disp_query))
+                              executed = True,
+                              disp_query = '', debug = (self.debug | other.debug))#'(%s\n&\n%s)' %(self._disp_query, other._disp_query))
 
     __mul__ = __and__
 
+    @class_method_timer
     def __xor__(self, other):
         assert isinstance(other, self.__class__)
         return self.__class__(self._graph, ('^', self._query, other._query),
                               init_nodes=self._dict_symmetric_difference(self._nodes, other._nodes),
-                              disp_query = '')#'(%s\n^\n%s)' %(self._disp_query, other._disp_query))
+                              executed = True,
+                              disp_query = '', debug = (self.debug | other.debug))#'(%s\n^\n%s)' %(self._disp_query, other._disp_query))
 
+    @class_method_timer
     def __ior__(self, other):
         assert isinstance(other, self.__class__)
         self._query = ('|', self._query, other._query)
@@ -1339,24 +1450,28 @@ class QueryWrapper(object):
 
     __iadd__ = __ior__
 
+    @class_method_timer
     def __isub__(self, other):
         assert isinstance(other, self.__class__)
         self._query = ('-', self._query, other._query)
         self._nodes = self._dict_difference(self._nodes, other._nodes)
         #self._disp_query = '(%s\n-\n%s)' %(self._disp_query, other._disp_query)
 
+    @class_method_timer
     def __iand__(self, other):
         assert isinstance(other, self.__class__)
         self._query = ('&', self._query, other._query)
         self._nodes = self._dict_intersection(self._nodes, other._nodes)
         #self._disp_query = '(%s\n&\n%s)' %(self._disp_query, other._disp_query)
 
+    @class_method_timer
     def __ixor__(self, other):
         assert isinstance(other, self.__class__)
         self._query = ('^', self._query, other._query)
         self._nodes = self._dict_symmetric_difference(self._nodes, other._nodes)
         #self._disp_query = '(%s\n^\n%s)' %(self._disp_query, other._disp_query)
 
+    @class_method_timer
     def __eq__(self, other):
         """
         Check whether nodes returned by queries are equivalent.
@@ -1413,7 +1528,7 @@ def _kwargs(kwargs):
             elif k=='rid':
                 attrs.append("@rid in %s" % v.__repr__().replace("'",""))
             else:
-                if len(k) > 1:
+                if isinstance(k, (tuple, list)) and len(k) > 1:
                     if len(v) == 1 and isinstance(v[0],(str,bytes)) and len(v[0])>=2 and v[0][:2] == '/r':
                         attrs.append(""" any(%s) matches "%s" """ % (','.join(k), v[0][2:]))
                     elif (len(v) ==2 and isinstance(v[0],(str,bytes)) and len(v[0])
