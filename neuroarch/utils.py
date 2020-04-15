@@ -167,7 +167,7 @@ def class_method_timer(func):
     def wrapper_timer(self, *args, **kwargs):
         debug = False
         if 'debug' in kwargs:
-            debug = True
+            debug = kwargs.get('debug', False)
         else:
             if self.debug:
                 debug = True
