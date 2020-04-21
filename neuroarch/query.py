@@ -1209,14 +1209,16 @@ class QueryWrapper(object):
                 pre_syn = self.gen_traversal_in(['SendsTo', synapse_classes, {'NHP':(rel,0)}], min_depth=1)
             else:
                 pre_syn = self.gen_traversal_in(['SendsTo', synapse_classes], min_depth=1)
+        if not len(pre_syn.nodes):
+            return []
         pre_neuron_list = []
-        synapse_rid_to_N = {s._id: s.NHP if high_prob else s.N for s in pre_syn.get_as('obj')[0]}
+        synapse_rid_to_N = {s._id: s.NHP if high_prob else s.N for s in pre_syn.get_as('obj', edges = False)[0]}
         synapse_rids = ','.join(self._records_to_list(pre_syn.nodes))
         n_rec=self._graph.client.command("""SELECT $path from (traverse in('SendsTo') FROM [{}] maxdepth 1)""".format(synapse_rids))
         ntos = {n[1]:n[0] for n in [re.findall('\#\d+\:\d+', x.oRecordData['$path']) for x in n_rec] if len(n)==2}
         neuron_rids = list(set(ntos.keys()))
         neurons = self.from_rids(self._graph, *neuron_rids)
-        neuron_rid_to_obj = {n._id: n for n in neurons.get_as('obj')[0]}
+        neuron_rid_to_obj = {n._id: n for n in neurons.get_as('obj', edges = False)[0]}
 
         for neu_id, syn_id in ntos.items():
             pre_neuron_list.append((neuron_rid_to_obj[neu_id], synapse_rid_to_N[syn_id]))
@@ -1232,14 +1234,16 @@ class QueryWrapper(object):
                 post_syn = self.gen_traversal_out(['SendsTo', synapse_classes, {'NHP':(rel,0)}], min_depth=1)
             else:
                 post_syn = self.gen_traversal_out(['SendsTo', synapse_classes], min_depth=1)
+        if not len(post_syn.nodes):
+            return []
         post_neuron_list = []
-        synapse_rid_to_N = {s._id: s.NHP if high_prob else s.N for s in post_syn.get_as('obj')[0]}
+        synapse_rid_to_N = {s._id: s.NHP if high_prob else s.N for s in post_syn.get_as('obj', edges = False)[0]}
         synapse_rids = ','.join(self._records_to_list(post_syn.nodes))
         n_rec=self._graph.client.command("""SELECT $path from (traverse out('SendsTo') FROM [{}] maxdepth 1)""".format(synapse_rids))
         ntos = {n[1]:n[0] for n in [re.findall('\#\d+\:\d+', x.oRecordData['$path']) for x in n_rec] if len(n)==2}
         neuron_rids = list(set(ntos.keys()))
         neurons = self.from_rids(self._graph, *neuron_rids)
-        neuron_rid_to_obj = {n._id: n for n in neurons.get_as('obj')[0]}
+        neuron_rid_to_obj = {n._id: n for n in neurons.get_as('obj', edges = False)[0]}
 
         for neu_id, syn_id in ntos.items():
             post_neuron_list.append((neuron_rid_to_obj[neu_id], synapse_rid_to_N[syn_id]))
