@@ -169,7 +169,7 @@ def class_method_timer(func):
         if 'debug' in kwargs:
             debug = kwargs.get('debug', False)
         else:
-            if self.debug:
+            if getattr(self, 'debug', False):
                 debug = True
         if debug:
             start_time = time.time()
