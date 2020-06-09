@@ -138,7 +138,7 @@ class QueryWrapper(object):
             return {}
         QueryResultNode = QueryWrapper.from_objs(graph,obj)
         output = {}
-        output['metadata'] = QueryResultNode.get_as('df')[0].to_dict(orient='index').values()[0]
+        output['metadata'] = list(QueryResultNode.get_as('df')[0].to_dict(orient='index').values())[0]
         for i in range(len(output['metadata']['pinned'])):
             output['metadata']['pinned'][i] = '#' + ":".join(map(str,output['metadata']['pinned'][i][1:]))
         output['qw'] = QueryResultNode.gen_traversal_out(['HasQueryResults'],min_depth=1)
@@ -623,7 +623,7 @@ class QueryWrapper(object):
     def find_matching_ports_from_selector(self, other):
         try:
             other_df = other.get_as('df')[0][['selector']].to_dict(orient='index').values()
-            sels = [a.values()[0] for a in other_df if isinstance(a.values()[0],str)]
+            sels = [list(a.values())[0] for a in other_df if isinstance(list(a.values())[0],str)]
         except KeyError:
             other_df = []
             sels = []
@@ -868,7 +868,7 @@ class QueryWrapper(object):
             #dq['$q'] = dq_str.format(var = var, disp_query = self._disp_query, classes = classes, filters = "")
 
         query = """select %s from (select expand($a) let %s, $a = intersect(%s))""" % \
-                    (columns, ", ".join(q.values()), ", ".join(q.keys()) )
+                    (columns, ", ".join(list(q.values())), ", ".join(list(q.keys())) )
         '''
         disp_query = "select %s from (select expand($a) let %s, $a = intersect(%s))" % \
                     (columns, ", ".join(dq.values()), ", ".join(dq.keys()) )
@@ -1026,7 +1026,7 @@ class QueryWrapper(object):
         node_cmd, node_map = self._copy_node_command(commit_stmt=False)
         edge_cmd = self._copy_edge_command(node_map, edge_types=None, commit_stmt=False)
 
-        cmd = 'begin;\n' + "".join(node_cmd) + "".join(edge_cmd) + ";\ncommit retry 100;\nreturn [%s];" % (", ".join(node_map.values()))
+        cmd = 'begin;\n' + "".join(node_cmd) + "".join(edge_cmd) + ";\ncommit retry 100;\nreturn [%s];" % (", ".join(list(node_map.values())))
         return cmd, node_map
 
 
@@ -1051,7 +1051,7 @@ class QueryWrapper(object):
             cmd = ";\n".join(cmd) + ";\n"
 
             if commit_stmt:
-                cmd += "commit retry 100;\nreturn [%s];" % (", ".join(node_map.values()))
+                cmd += "commit retry 100;\nreturn [%s];" % (", ".join(list(node_map.values())))
             cmd_list.append(cmd)
             node_map_full.update(node_map)
 
@@ -1120,7 +1120,7 @@ class QueryWrapper(object):
         d_n = diff_nodes(old_df_nodes, new_df_nodes, full_replace)
 
         # filter out edges related to nodes that will be deleted
-        del_nodes = d_n['del'].keys()
+        del_nodes = list(d_n['del'].keys())
         old_df_edges_filter = self._remove_edges_by_node(old_df_edges, del_nodes)
         new_df_edges_filter = self._remove_edges_by_node(new_df_edges, del_nodes)
 
@@ -1134,7 +1134,7 @@ class QueryWrapper(object):
         return self.from_rids(self._graph, *rid_list)
 
     def diff_save_as(self, new_df_nodes, new_df_edges, **kwargs):
-        class_list = self._graph.registry.keys()
+        class_list = list(self._graph.registry.keys())
 
         if 'max_levels_in' in kwargs:
             assert isinstance(kwargs['max_levels_in'], numbers.Integral) and kwargs['max_levels_in'] >= 0
@@ -1302,7 +1302,7 @@ class QueryWrapper(object):
                   or strings of only edge_types
         '''
         assert len(args)>0
-        class_list = self._graph.registry.keys()
+        class_list = list(self._graph.registry.keys())
         rid_list = self._records_to_list(self.nodes)
         if len(rid_list) == 0:
             return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
@@ -1390,7 +1390,7 @@ class QueryWrapper(object):
 
         # _, _, _, columns = _kwargs(kwargs) #wrong
         query = """ select expand($q) let %s, $q = unionall(%s) """ % \
-                (", ".join(q.values()), ",".join(list(q.keys())[min_depth:max_depth]))
+                (", ".join(list(q.values())), ",".join(list(q.keys())[min_depth:max_depth]))
         disp_query = ""
         #disp_query = "select expand($q) let %s, $q = unionall(%s) " % \
         #        (", ".join(dq.values()[min_depth:max_depth]), ",".join(dq.keys()[min_depth:max_depth]))
