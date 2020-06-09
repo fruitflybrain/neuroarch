@@ -1563,7 +1563,7 @@ def _kwargs(kwargs):
                     and v[0] in ['<','>','=','<=','>=']):
                         attrs.append("any(%s) %s %s" % (','.join(k),v[0],v[1]))
                     else:
-                        attrs.append("%s in any(%s)" % (','.join(k), v))
+                        attrs.append("any(%s) in %s" % (','.join(k), v))
                 else:
                     if len(v) == 1 and isinstance(v[0],(str,bytes)) and len(v[0])>=2 and v[0][:2] == '/r':
                         attrs.append("""%s matches "%s" """ % (k, v[0][2:]))
