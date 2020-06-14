@@ -306,8 +306,7 @@ class QueryWrapper(object):
         List of edge records between nodes retrieved by query.
         """
 
-        if not self._executed:
-            self.execute()
+        self.execute(edges = True)
         return list(self._edges.values())
 
     @property
