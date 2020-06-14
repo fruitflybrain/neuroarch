@@ -316,8 +316,7 @@ class QueryWrapper(object):
         List of pyorient objects corresponding to edge records between nodes retrieved by query.
         """
 
-        if not self._executed:
-            self.execute()
+        self.execute(edges = True)
         return list(map(self._graph.get_element, self._edges))
 
     def __nonzero__(self):
