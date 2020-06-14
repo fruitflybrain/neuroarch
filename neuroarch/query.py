@@ -606,7 +606,7 @@ class QueryWrapper(object):
         rid_list = self._records_to_list(self.nodes)
         if len(rid_list) == 0:
             return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
-                                  disp_query=disp_query, debug = self.debug, edges = self.edges)
+                                  debug = self.debug, edges = self.edges)
         classes, attrs, depth, columns = _kwargs(kwargs)
 
         relationships = ["""%s('owns')""" % direction]*levels
