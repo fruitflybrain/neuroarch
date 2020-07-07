@@ -615,7 +615,7 @@ class QueryWrapper(object):
                     (columns, '.'.join(relationships), self._disp_query, classes)
         '''
         disp_query = ''
-        return self.__class__(self._graph, QueryString(query,"sql"), disp_query=disp_query, debug = self.debug)
+        return self.__class__(self._graph, QueryString(query,"sql"), debug = self.debug)
 
     @class_method_timer
     def find_matching_ports_from_selector(self, other):
@@ -676,7 +676,7 @@ class QueryWrapper(object):
         rid_list = self._records_to_list(self.nodes)
         if len(rid_list) == 0:
             return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
-                                  disp_query=self.disp_query, debug = self.debug, edges = self.edges)
+                                  debug = self.debug, edges = self.edges)
 
         classes, attrs, depth, columns = _kwargs(kwargs)
 
@@ -694,7 +694,7 @@ class QueryWrapper(object):
                 (columns, direction, self._disp_query, depth, classes, attrs_query)
         '''
         disp_query = ''
-        return self.__class__(self._graph, QueryString(query, "sql"), disp_query=disp_query,
+        return self.__class__(self._graph, QueryString(query, "sql"),
                               debug = self.debug)
 
     '''
@@ -873,7 +873,7 @@ class QueryWrapper(object):
         '''
         disp_query = ''
         #print disp_query
-        return self.__class__(self._graph, QueryString(query,"sql"), disp_query=disp_query, debug = self.debug)
+        return self.__class__(self._graph, QueryString(query,"sql"), debug = self.debug)
 
 
     def _check_tags(self, tag):
@@ -969,7 +969,7 @@ class QueryWrapper(object):
                 (", ".join(relationships), self._disp_query, max_levels, while_classes, where_classes)
         '''
 
-        return self.__class__(self._graph, QueryString(query, "sql"), disp_query=disp_query, debug = self.debug)
+        return self.__class__(self._graph, QueryString(query, "sql"), debug = self.debug)
 
     def _get_in_edges(self, rid, edge_types):
         in_relationships = ["in('%s') as %s" % (e, e) for e in edge_types]
@@ -1209,6 +1209,8 @@ class QueryWrapper(object):
 
     @class_method_timer
     def pre_synaptic_neurons_with_synapse_count(self, N=None, rel='>', include_inferred=True, high_prob = False):
+        # only work with 1 neuron for now
+        assert len(self.nodes) <= 1
         synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
         if N:
             pre_syn = self.gen_traversal_in(['SendsTo', synapse_classes, {'NHP' if high_prob else 'N':(rel,N)}], min_depth=1)
@@ -1234,6 +1236,8 @@ class QueryWrapper(object):
 
     @class_method_timer
     def post_synaptic_neurons_with_synapse_count(self, N=None, rel='>', include_inferred=True, high_prob = False):
+        # only work with 1 neuron for now
+        assert len(self.nodes) <= 1
         synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
         if N:
             post_syn = self.gen_traversal_out(['SendsTo', synapse_classes, {'NHP' if high_prob else 'N':(rel,N)}], min_depth=1)
@@ -1304,7 +1308,7 @@ class QueryWrapper(object):
         rid_list = self._records_to_list(self.nodes)
         if len(rid_list) == 0:
             return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
-                                  disp_query=self.disp_query, debug = self.debug, edges = self.edges)
+                                  debug = self.debug, edges = self.edges)
         q = dict()
         dq = {}
         q['$q0'] = "$q0 = (select from [%s])" % ", ".join(rid_list)
@@ -1393,7 +1397,7 @@ class QueryWrapper(object):
         #disp_query = "select expand($q) let %s, $q = unionall(%s) " % \
         #        (", ".join(dq.values()[min_depth:max_depth]), ",".join(dq.keys()[min_depth:max_depth]))
 
-        return self.__class__(self._graph, QueryString(query, "sql"), disp_query=disp_query, debug = self.debug)
+        return self.__class__(self._graph, QueryString(query, "sql"), debug = self.debug)
 
 
     def export_graph(self, graph_name, as_type='df', stored_as='gpickle', compression=''):
@@ -1437,7 +1441,7 @@ class QueryWrapper(object):
         return self.__class__(self._graph, ('|', self._query, other._query),
                               init_nodes=self._dict_union(self._nodes, other._nodes),
                               executed = True,
-                              disp_query = '', debug = (self.debug | other.debug))#'(%s\n|\n%s)' %(self._disp_query, other._disp_query))
+                              debug = (self.debug | other.debug))#'(%s\n|\n%s)' %(self._disp_query, other._disp_query))
 
     __add__ = __or__
 
@@ -1447,7 +1451,7 @@ class QueryWrapper(object):
         return self.__class__(self._graph, ('-', self._query, other._query),
                               init_nodes=self._dict_difference(self._nodes, other._nodes),
                               executed = True,
-                              disp_query = '', debug = (self.debug | other.debug))#'(%s\n-\n%s)' %(self._disp_query, other._disp_query))
+                              debug = (self.debug | other.debug))#'(%s\n-\n%s)' %(self._disp_query, other._disp_query))
 
     @class_method_timer
     def __and__(self, other):
@@ -1455,7 +1459,7 @@ class QueryWrapper(object):
         return self.__class__(self._graph, ('&', self._query, other._query),
                               init_nodes=self._dict_intersection(self._nodes, other._nodes),
                               executed = True,
-                              disp_query = '', debug = (self.debug | other.debug))#'(%s\n&\n%s)' %(self._disp_query, other._disp_query))
+                              debug = (self.debug | other.debug))#'(%s\n&\n%s)' %(self._disp_query, other._disp_query))
 
     __mul__ = __and__
 
@@ -1465,7 +1469,7 @@ class QueryWrapper(object):
         return self.__class__(self._graph, ('^', self._query, other._query),
                               init_nodes=self._dict_symmetric_difference(self._nodes, other._nodes),
                               executed = True,
-                              disp_query = '', debug = (self.debug | other.debug))#'(%s\n^\n%s)' %(self._disp_query, other._disp_query))
+                              debug = (self.debug | other.debug))#'(%s\n^\n%s)' %(self._disp_query, other._disp_query))
 
     @class_method_timer
     def __ior__(self, other):
