@@ -372,6 +372,11 @@ class LeakyIAF(AxonHillockModel):
     element_plural = 'LeakyIAFs'
     name = String(nullable=False, unique=False, indexed=True)
 
+class LeakyIAFwithRefractoryPeriod(AxonHillockModel):
+    element_type = 'LeakyIAFwithRefractoryPeriod'
+    element_plural = 'LeakyIAFwithRefractoryPeriods'
+    name = String(nullable=False, unique=False, indexed=True)
+
 class BufferVoltage(MembraneModel):
     element_type = 'BufferVoltage'
     element_plural = 'BufferVoltages'
@@ -422,6 +427,7 @@ class Owns(Relationship):
 
 class SendsTo(Relationship):
     label = 'SendsTo'
+    variable = String(nullable=False, unique=False, indexed=True)
 
 class HasData(Relationship):
     label = 'HasData'
