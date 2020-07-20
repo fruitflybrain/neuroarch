@@ -427,7 +427,7 @@ class Owns(Relationship):
 
 class SendsTo(Relationship):
     label = 'SendsTo'
-    variable = String(nullable=False, unique=False, indexed=True)
+    variable = String(nullable=True, unique=False, indexed=True)
 
 class HasData(Relationship):
     label = 'HasData'
