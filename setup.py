@@ -62,5 +62,6 @@ if __name__ == "__main__":
             'numpy',
             'pandas',
             'path.py',
-            'pyorient>=1.4.6'],
+            'pyorient>=1.4.6',
+            'deepdiff'],
         )
