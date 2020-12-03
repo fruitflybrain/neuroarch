@@ -101,6 +101,11 @@ class QueryWrapper(object):
         if execute:
             self.execute(edges)
 
+    def __len__(self):
+        if not self._executed:
+            self.execute()
+        return len(self._nodes)
+
     @classmethod
     def from_objs(cls, graph, objs, debug = False):
         """
@@ -242,6 +247,33 @@ class QueryWrapper(object):
         if as_type=='obj':
             return self._graph.elements_from_records(self.nodes),\
                 self._graph.elements_from_records(self.edges)
+        raise UnsupportedView(as_type)
+
+    @class_method_timer
+    def get_nodes(self, as_type = 'obj', force_rid = False, deepcopy = False):
+        """
+        Return view of nodes in query results.
+
+        Parameters
+        ----------
+        as_type : {'df', 'obj'}
+            If 'df', return nodes as a Pandas DataFrame instances.
+            If 'obj', return a iist of pyorient OGM objects.
+        force_rid : bool
+            If True, always use the OrientDB RID as the node identifier or index
+            in the returned graph or DataFrame. Otherwise, use 'id' property.
+            Ignored if `as_type` == 'obj'.
+
+        Returns
+        -------
+        result :
+            Nodes in the query results in specified format.
+        """
+        if as_type=='obj':
+            return self._graph.elements_from_records(self.nodes)
+        elif as_type=='df':
+            return pd.as_pandas(nodes = self.nodes, force_rid = force_rid,
+                                deepcopy = deepcopy)[0]
         raise UnsupportedView(as_type)
 
     @property
@@ -1558,22 +1590,23 @@ def _kwargs(kwargs):
             elif k=='rid':
                 attrs.append("@rid in %s" % v.__repr__().replace("'",""))
             else:
-                if isinstance(k, (tuple, list)) and len(k) > 1:
-                    if len(v) == 1 and isinstance(v[0],(str,bytes)) and len(v[0])>=2 and v[0][:2] == '/r':
-                        attrs.append(""" any(%s) matches "%s" """ % (','.join(k), v[0][2:]))
-                    elif (len(v) ==2 and isinstance(v[0],(str,bytes)) and len(v[0])
-                    and v[0] in ['<','>','=','<=','>=']):
-                        attrs.append("any(%s) %s %s" % (','.join(k),v[0],v[1]))
-                    else:
-                        attrs.append("any(%s) in %s" % (','.join(k), v))
+                # if isinstance(k, (tuple, list)) and len(k) > 1:
+                #     if len(v) == 1 and isinstance(v[0],(str,bytes)) and len(v[0])>=2 and v[0][:2] == '/r':
+                #         attrs.append(""" any(%s) matches "%s" """ % (','.join(k), v[0][2:]))
+                #     elif (len(v) ==2 and isinstance(v[0],(str,bytes)) and len(v[0])
+                #     and v[0] in ['<','>','=','<=','>=']):
+                #         attrs.append("any(%s) %s %s" % (','.join(k),v[0],v[1]))
+                #     else:
+                #         attrs.append("any(%s) in %s" % (','.join(k), v))
+                # else:
+                if len(v) == 1 and isinstance(v[0],(str,bytes)) and len(v[0])>=2 and v[0][:2] == '/r':
+                    # regex match
+                    attrs.append("""%s matches "%s" """ % (k, v[0][2:]))
+                elif (len(v) ==2 and isinstance(v[0],(str,bytes)) and len(v[0])
+                and v[0] in ['<','>','=','<=','>=']):
+                    attrs.append("%s %s %s" % (k,v[0],v[1]))
                 else:
-                    if len(v) == 1 and isinstance(v[0],(str,bytes)) and len(v[0])>=2 and v[0][:2] == '/r':
-                        attrs.append("""%s matches "%s" """ % (k, v[0][2:]))
-                    elif (len(v) ==2 and isinstance(v[0],(str,bytes)) and len(v[0])
-                    and v[0] in ['<','>','=','<=','>=']):
-                        attrs.append("%s %s %s" % (k,v[0],v[1]))
-                    else:
-                        attrs.append("%s in %s" % (k, v))
+                    attrs.append("%s in %s" % (k, v))
     return classes, attrs, depth, columns
 
 

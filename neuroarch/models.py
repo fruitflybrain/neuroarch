@@ -125,6 +125,9 @@ class Species(Node):
     element_type = 'Species'
     element_plural = 'Species'
     name = String(nullable=False, unique=False, indexed=True)
+    stage = String(nullable=False, unique=False, indexed=True)
+    sex = String(nullable=False, unique=False, indexed=True)
+    synonyms = EmbeddedList(linked_to=String(), nullable=True, unique=False, indexed=True)
 
 # Biological data nodes:
 class BioNode(Node):
@@ -135,8 +138,9 @@ class DataSource(BioNode):
     element_type = 'DataSource'
     element_plural = 'DataSources'
     name = String(nullable=False, unique=False, indexed=True)
-    version = String(nullable=True, unique=False, indexed=True)
+    version = String(nullable=False, unique=False, indexed=True)
     description = String(nullable=True, unique=False, indexed=False)
+    url = String(nullable=True, unique=False, indexed=False)
 
 class Subsystem(BioNode):
     element_type = 'Subsystem'
@@ -162,7 +166,7 @@ class Tract(BioNode):
     element_type = 'Tract'
     element_plural = 'Tracts'
     name = String(nullable=False, unique=False, indexed=True)
-    version = String(nullable=False, unique=False, indexed=True)
+    version = String(nullable=True, unique=False, indexed=True)
     neuropils = EmbeddedSet(linked_to=String(), nullable=True, unique=False, indexed=True)
 
 class BioSensor(BioNode):
@@ -265,6 +269,8 @@ class MorphologyData(BioNode):
     identifier = EmbeddedList(linked_to=Integer(), nullable=True, unique=False, indexed=False)
     sample = EmbeddedList(linked_to=Integer(), nullable=True, unique=False, indexed=False)
     confidence = EmbeddedList(linked_to=Double(), nullable=True, unique=False, indexed=False)
+    vertices = EmbeddedList(linked_to=Double(), nullable=True, unique=False, indexed=False)
+    faces = EmbeddedList(linked_to=Integer(), nullable=True, unique=False, indexed=False)
 
 class NeurotransmitterData(BioNode):
     element_type = 'NeurotransmitterData'
