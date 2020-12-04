@@ -106,6 +106,28 @@ def _to_var_name(s):
 class NeuroArch(object):
     def __init__(self, host, db_name, port = 2424, user = 'root', password = 'root', mode = 'r',
                  debug = False):
+        """
+        Create or connect to a NeuroArch object for database access.
+
+        Parameters
+        ----------
+        host : str
+            IP of the host
+        db_name : str
+            name of the database to connect to or create
+        port : int
+            binary port of the OrientDB server
+        user : str
+            user name to access the database
+        password : str
+            password to access the database
+        mode : str
+            'r': read only
+            'w': read/write on existing database, if does not exist, one is created.
+            'o': read/write and overwrite any of the existing data in the database.
+        debug : bool
+            Whether the queries are done in debug mode
+        """
         if mode == 'r':
             initial_drop = False
             self._allow_write = False
@@ -145,8 +167,11 @@ class NeuroArch(object):
             Type of the Node to be retrieved.
         name : str
             Name to be retrieved
-        data_source : neuroarch.models.DataSource
+        data_source : neuroarch.models.DataSource or None
             The DataSource under which the unique object will be retrieved
+            If None, the searched object is not bound to the DataSource.
+        attr : keyword arguments (optional)
+            node attributes using key=value, currently not implemented
 
         Returns
         -------
@@ -186,6 +211,21 @@ class NeuroArch(object):
         return obj
 
     def set(self, cls, name, value, data_source):
+        """
+        Set an entry in the local database cache.
+
+        Parameters
+        ----------
+        cls : str
+            The class type of the record, (e.g., 'Neuropil')
+        name : str
+            The unique name of the node under the data_source.
+            It will be used to key the cached item.
+        value : models.Node subclasses
+            The object for the database record to be cached.
+        data_source : models.DataSource
+            The DataSource under which name can be uniquely found.
+        """
         # if cls not in self._cache:
         #     self._cache[cls] = {}
         # self._cache[cls][name] = value
@@ -945,12 +985,16 @@ class NeuroArch(object):
                 {'type': 'swc'/'obj'/...}
             Additional keys must be provides, either 'filename' with value
             indicating the file to be read for the morphology,
-            or 'url' with value indicating the url from which the file can be retrieved,
             or a full definition of the morphology according the schema.
+            For swc, required fields are ['sample', 'identifier', 'x', 'y, 'z', 'r', 'parent'].
+            More formats pending implementation.
         arborization : list of dict (optional)
             A list of dictionaries define the arborization pattern of
-            the neuron in neuropils, subregions, and tractss, with
-            {'type': 'neuropil'/'subregion'/'tract', dendrites': {}, 'axons': {}}
+            the neuron in neuropils, subregions, and tracts, if applicable, with
+            {'type': 'neuropil' or 'subregion' or 'tract',
+             'dendrites': {'EB': 20, 'FB': 2},
+             'axons': {'NO': 10, 'MB': 22}}
+            Name of the regions must already be present in the database.
         neurotransmitters : str or list of str (optional)
             The neurotransmitter(s) expressed by the neuron
         neurotransmitters_datasources : neuroarch.models.DataSource or list of neuroarch.models.DataSource (optional)
@@ -1135,8 +1179,9 @@ class NeuroArch(object):
                 {'type': 'swc'/'obj'/...}
             Additional keys must be provides, either 'filename' with value
             indicating the file to be read for the morphology,
-            or 'url' with value indicating the url from which the file can be retrieved,
             or a full definition of the morphology according the schema.
+            For swc, required fields are ['sample', 'identifier', 'x', 'y, 'z', 'r', 'parent'].
+            For mesh, requires an obj file or ['faces', 'vertices'] defined as rastered list of a wavefront obj file
         data_source : neuroarch.models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
         """
@@ -1145,7 +1190,7 @@ class NeuroArch(object):
         if not isinstance(morphology, list):
             morphology = [morphology]
         for i, data in enumerate(morphology):
-            content = {'name': obj.name, 'morpho_type': data['type']}
+            content = {'name': obj.name, 'morph_type': data['type']}
             if isinstance(obj, (models.Neuron, models.Synapse)):
                 content['uname'] = obj.uname
             if data['type'] == 'swc':
@@ -1219,6 +1264,49 @@ class NeuroArch(object):
                     morphology = None,
                     arborization = None,
                     data_source = None):
+        """
+        Add a Synapse from pre_neuron and post_neuron.
+        The Synapse is typicall a group of synaptic contact points.
+
+        parameters
+        ----------
+        pre_neuron : str or models.Neuron
+            The neuron that is presynaptic in the synapse.
+            If str, must be the uname of the presynaptic neuron.
+        post_neuron : str or models.Neuron
+            The neuron that is postsynaptic in the synapse.
+            If str, must be the uname of the postsynaptic neuron.
+        N : int (optional)
+            The number of synapses from pre_neuron to the post_neuron.
+        NHP : int (optional)
+            The number of synpases that can be confirmed with a high probability
+        morphology : list of dict (optional)
+            Each dict in the list defines a type of morphology of the neuron.
+            Must be loaded from a file.
+            The dict must include the following key to indicate the type of morphology:
+                {'type': 'swc'}
+            For swc, required fields are ['sample', 'identifier', 'x', 'y, 'z', 'r', 'parent'].
+            For synapses, if both postsynaptic and presynaptic sites are available,
+            x, y, z, r must each be a list where the first half indicate the
+            locations/radii of postsynaptic sites (on the presynaptic neuron),
+            and the second half indicate the locations/radii of the presynaptic
+            sites (on the postsynaptic neuron). There should be a one-to-one relation
+            between the first half and second half.
+            parent must be a list of -1.
+        arborization : list of dict (optional)
+            A list of dictionaries define the arborization pattern of
+            the neuron in neuropils, subregions, and tracts, if applicable, with
+            {'type': 'neuropil' or 'subregion' or 'tract',
+             'synapses': {'EB': 20, 'FB': 2}}
+            Name of the regions must already be present in the database.
+        data_source : neuroarch.models.DataSource (optional)
+            The datasource. If not specified, default DataSource will be used.
+
+        Returns
+        -------
+        synapse : models.Synapse
+            The created synapse object.
+        """
         self._database_writeable_check()
         connect_DataSource = self._default_DataSource if data_source is None else data_source
         # self._uniqueness_check('Synapse', unique_in = connect_DataSource,
