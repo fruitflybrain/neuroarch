@@ -670,7 +670,8 @@ class NeuroArch(object):
             self.graph.Owns.create(species, datasource)
         return datasource
 
-    def add_Subsystem(self, name, synonyms = None, data_source = None):
+    def add_Subsystem(self, name, synonyms = None,
+                      morphology = None, data_source = None):
         """
         Create a Subsystem record and link it to related node types.
 
@@ -681,6 +682,13 @@ class NeuroArch(object):
             (abbreviation is preferred, full name can be given in the synonyms)
         synonyms : list of str
             Synonyms of the subsystem.
+        morphology : dict (optional)
+            Morphology of the neuropil boundary specified with a triangulated mesh,
+            with fields
+                'vertices': a single list of float, every 3 entries specify (x,y,z) coordinates.
+                'faces': a single list of int, every 3 entries specify samples of vertices.
+            Or, specify the file path to a json file that includes the definition of the mesh.
+            Or, specify only a url which can be readout later on.
         data_source : neuroarch.models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
 
@@ -712,6 +720,8 @@ class NeuroArch(object):
         subsystem = batch['${}'.format(node_name)]
         batch.commit(20)
 
+        if morphology is not None:
+            self.add_morphology(subsystem, morphology, data_source = connect_DataSource)
         self.set('Subsystem', name, subsystem, data_source = connect_DataSource)
         return subsystem
 
@@ -1234,14 +1244,14 @@ class NeuroArch(object):
                         with open(data['filename'], 'r') as f:
                             mesh_json = json.load(f)
                         faces = mesh_json['faces']
-                        vertices = mesh_json['vertices']
+                        vertices = mesh_json['vertices'] * data.get('scale', 1.0)
                     elif file_type == '.obj':
                         df = pd.read_csv(data['filename'], sep = ' ',
                                          skip_blank_lines=True,
                                          comment = '#',
                                          index_col = False,
                                          names = ['type', 'x', 'y', 'z'] )
-                        vertices = list(itertools.chain.from_iterable(df.loc[df['type'] == 'v'][df.columns[1:]].to_numpy()))
+                        vertices = list(itertools.chain.from_iterable(df.loc[df['type'] == 'v'][df.columns[1:]].to_numpy())) * data.get('scale', 1.0)
                         faces = [int(a) for a in itertools.chain.from_iterable(df.loc[df['type'] == 'f'][df.columns[1:]].to_numpy().astype(np.int32))]
                     else:
                         raise ValueError('File type must be .json or .obj')
