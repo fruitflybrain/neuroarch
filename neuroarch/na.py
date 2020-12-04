@@ -1168,9 +1168,6 @@ class NeuroArch(object):
                                  batch[:transmitter_node], 'HasData')
             self.link_with_batch(batch, ntds[ds_index],
                                  batch[:transmitter_node], 'Owns')
-        for transmitter in neurotransmitters:
-            transmitter_obj = self.get('Neurotransmitter', transmitter, None)
-            self.link_with_batch(batch, obj, transmitter_obj, 'Expresses')
         batch.commit(20)
 
     def add_morphology(self, obj, morphology, data_source = None):
