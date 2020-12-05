@@ -1162,9 +1162,9 @@ class NeuroArch(object):
         for i, rid in enumerate(ntds_unique_rids):
             ds_index = ntds_rids.index(rid)
             transmitters = [neurotransmitters[i] for i, ds in enumerate(ntds) if ds._id == rid]
-            transmitter_node = _to_var_name('Transmitter_{}_{}'.format(name, rid))
-            batch[transmitter_node] = batch.NeurotransmitterDatas.create(name = neuron.name, Transmitters = transmitters)
-            self.link_with_batch(batch, obj,
+            transmitter_node = _to_var_name('Transmitter_{}_{}'.format(neuron.uname, rid))
+            batch[transmitter_node] = batch.NeurotransmitterDatas.create(name = neuron.uname, Transmitters = transmitters)
+            self.link_with_batch(batch, neuron,
                                  batch[:transmitter_node], 'HasData')
             self.link_with_batch(batch, ntds[ds_index],
                                  batch[:transmitter_node], 'Owns')
@@ -1357,6 +1357,134 @@ class NeuroArch(object):
         batch = self.graph.batch()
         synapse_obj_name = _to_var_name(synapse_uname)
         batch[synapse_obj_name] = batch.Synapses.create(**synapse_info)
+
+        self.link_with_batch(batch, connect_DataSource, batch[:synapse_obj_name],
+                             'Owns')
+        self.link_with_batch(batch, pre_neuron_obj, batch[:synapse_obj_name],
+                             'SendsTo')
+        self.link_with_batch(batch, batch[:synapse_obj_name], post_neuron_obj,
+                             'SendsTo')
+
+        if arborization is not None:
+            if not isinstance(arborization, list):
+                arborization = [arborization]
+            synapses = {}
+            arb_name = 'arb{}'.format(synapse_obj_name)
+            for data in arborization:
+                if data['type'] in ['neuropil', 'subregion', 'tract']:
+                    arborization_type = data['type'].capitalize()
+                    # region_arb = _to_var_name(
+                    #     '{}Arb{}'.format(arborization_type, name))
+                    if isinstance(data['synapses'], dict) and \
+                            all(isinstance(k, str) and isinstance(v, int) for k, v in data['synapses'].items()):
+                        pass
+                    else:
+                        raise ValueError('synapses in the {} distribution data not understood.'.format(data['type']))
+
+                    # check if the regions exists
+                    for region in data['synapses']:
+                        self.get(arborization_type, region, connect_DataSource)
+                    synapses.update(data['synapses'])
+                else:
+                    raise TypeError('Arborization data type of not understood')
+            # create the ArborizationData node
+            batch[arb_name] = batch.ArborizationDatas.create(name = synapse_name,
+                                                             uname = synapse_uname,
+                                                             synpases = synapses)
+            self.link_with_batch(batch, batch[:synapse_obj_name],
+                                 batch[:arb_name], 'HasData')
+            self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
+        synapse = batch['${}'.format(synapse_obj_name)]
+        batch.commit(20)
+        #self.set('Synapse', '{}{}'.format(synapse_name, synapse._id), synapse, data_source = connect_DataSource)
+
+        if morphology is not None:
+            self.add_morphology(synapse, morphology, data_source = connect_DataSource)
+        return synapse
+
+    def add_InferredSynapse(self, pre_neuron, post_neuron,
+                            N = None, NHP = None,
+                            morphology = None,
+                            arborization = None,
+                            data_source = None):
+        """
+        Add an InferredSynapse from pre_neuron and post_neuron.
+        The Synapse is typicall a group of synaptic contact points.
+
+        parameters
+        ----------
+        pre_neuron : str or models.Neuron
+            The neuron that is presynaptic in the synapse.
+            If str, must be the uname of the presynaptic neuron.
+        post_neuron : str or models.Neuron
+            The neuron that is postsynaptic in the synapse.
+            If str, must be the uname of the postsynaptic neuron.
+        N : int (optional)
+            The number of synapses from pre_neuron to the post_neuron.
+        morphology : list of dict (optional)
+            Each dict in the list defines a type of morphology of the neuron.
+            Must be loaded from a file.
+            The dict must include the following key to indicate the type of morphology:
+                {'type': 'swc'}
+            For swc, required fields are ['sample', 'identifier', 'x', 'y, 'z', 'r', 'parent'].
+            For synapses, if both postsynaptic and presynaptic sites are available,
+            x, y, z, r must each be a list where the first half indicate the
+            locations/radii of postsynaptic sites (on the presynaptic neuron),
+            and the second half indicate the locations/radii of the presynaptic
+            sites (on the postsynaptic neuron). There should be a one-to-one relation
+            between the first half and second half.
+            parent must be a list of -1.
+        arborization : list of dict (optional)
+            A list of dictionaries define the arborization pattern of
+            the neuron in neuropils, subregions, and tracts, if applicable, with
+            {'type': 'neuropil' or 'subregion' or 'tract',
+             'synapses': {'EB': 20, 'FB': 2}}
+            Name of the regions must already be present in the database.
+        data_source : neuroarch.models.DataSource (optional)
+            The datasource. If not specified, default DataSource will be used.
+
+        Returns
+        -------
+        synapse : models.Synapse
+            The created synapse object.
+        """
+        self._database_writeable_check()
+        connect_DataSource = self._default_DataSource if data_source is None else data_source
+        # self._uniqueness_check('Synapse', unique_in = connect_DataSource,
+                               # name = name)
+
+        if isinstance(pre_neuron, models.Neuron):
+            pre_neuron_obj = pre_neuron
+            pre_neuron_name = pre_neuron.name
+        elif isinstance(pre_neuron, str):
+            pre_neuron_name = pre_neuron
+            pre_neuron_obj = self.get('Neuron', pre_neuron_name,
+                                      connect_DataSource)
+        else:
+            raise TypeError('Parameter pre_neuron must be either a str or a Neuron object.')
+
+        if isinstance(post_neuron, models.Neuron):
+            post_neuron_obj = post_neuron
+            post_neuron_name = post_neuron.name
+        elif isinstance(post_neuron, str):
+            post_neuron_name = post_neuron
+            post_neuron_obj = self.get('Neuron', post_neuron_name,
+                                       connect_DataSource)
+        else:
+            raise TypeError('Parameter post_neuron must be either a str or a Neuron object.')
+
+        synapse_uname = '{}--{}'.format(pre_neuron_obj.uname, post_neuron_obj.uname)
+        synapse_name = '{}--{}'.format(pre_neuron_obj.name, post_neuron_obj.name)
+        synapse_info = {'uname': synapse_uname,
+                        'name': synapse_name}
+        if N is not None:
+            synapse_info['N'] = N
+        #pre_conf = np.array(eval(row['pre_confidence']))/1e6
+        #post_conf = np.array(eval(row['post_confidence']))/1e6
+        #NHP = np.sum(np.logical_and(post_conf>=0.7, pre_conf>=0.7))
+        batch = self.graph.batch()
+        synapse_obj_name = _to_var_name(synapse_uname)
+        batch[synapse_obj_name] = batch.InferredSynapses.create(**synapse_info)
 
         self.link_with_batch(batch, connect_DataSource, batch[:synapse_obj_name],
                              'Owns')
