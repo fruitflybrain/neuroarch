@@ -12,6 +12,7 @@ import copy
 from tqdm import tqdm
 import pdb
 import os
+from warnings import warn
 
 import numpy as np
 import networkx as nx
@@ -55,6 +56,13 @@ class NodeAlreadyExistError(Exception):
 
 class RecordNotFoundError(Exception):
     """Cannot find the data in NeuroArch database"""
+    pass
+
+class NodeAlreadyExistWarning(Warning):
+    pass
+
+class DuplicateNodeWarning(Warning):
+    """NeuroArch got duplicate nodes"""
     pass
 
 
@@ -422,19 +430,24 @@ class NeuroArch(object):
             if len(tmp):
                 objs = tmp.nodes_as_objs
                 if attr['name'] in [obj.name for obj in objs]:
-                    raise NodeAlreadyExistError("""Species {name} at {stage} stage ({sex}) already exists""".format(
-                        name = attr['name'], stage = attr['stage'], sex = attr['sex']))
+                    warn(NodeAlreadyExistWarning("""Species {name} at {stage} stage ({sex}) already exists""".format(
+                        name = attr['name'], stage = attr['stage'], sex = attr['sex'])))
+                    return objs
                 else:
                     for obj in objs:
                         if attr['name'] in obj.synonyms:
-                            raise NodeAlreadyExistError(
+                            warn(NodeAlreadyExistWarning(
                                 """Species {name} (as its synonym) at {stage} stage ({sex}) already exists, use name {formalname} instead""".format(
-                                name = attr['name'], stage = attr['stage'], sex = attr['sex'], formalname = obj.name))
+                                name = attr['name'], stage = attr['stage'], sex = attr['sex'], formalname = obj.name)))
+                            return objs
         elif cls == 'DataSource':
-            if self.exists(cls, name = attr['name'], version = attr['version']):
-                raise DuplicateNodeError("""{} Node with attributes {} already exists""".format(
+            objs = self.find_objs('DataSource', name=attr['name'], version=attr['version'])
+            #if self.exists(cls, name = attr['name'], version = attr['version']):
+            if len(objs):
+                warn(DuplicateNodeWarning("""{} Node with attributes {} already exists""".format(
                                 cls, ', '.join(["""{} = {}""".format(key, value) \
-                                for key, value in attr.items()])))
+                                for key, value in attr.items()]))))
+                return objs
         elif cls == 'Neurotransmitter':
             tmp = self.sql_query(
                 """select from Neurotransmitter where name = "{name}" or "{name}" in synonyms""".format(
@@ -442,14 +455,16 @@ class NeuroArch(object):
             if len(tmp):
                 objs = tmp.nodes_as_objs
                 if attr['name'] in [obj.name for obj in objs]:
-                    raise NodeAlreadyExistError("""Neurotransmitter {name} already exists""".format(
-                        name = attr['name']))
+                    warn(NodeAlreadyExistWarning("""Neurotransmitter {name} already exists""".format(
+                        name = attr['name'])))
+                    return objs
                 else:
                     for obj in objs:
                         if attr['name'] in obj.synonyms:
-                            raise NodeAlreadyExistError(
+                            warn(NodeAlreadyExistWarning(
                                 """Neurotransmitter {name} (as its synonym) already exists, use name {formalname} instead""".format(
-                                name = attr['name'], formalname = obj.name))
+                                name = attr['name'], formalname = obj.name)))
+                            return objs
         elif cls in ['Subsystem', 'Neuropil', 'Subregion', 'Tract']:
             # TODO: synonyms are not checked against existing names and synonyms
             if not isinstance(unique_in, models.DataSource):
@@ -460,18 +475,20 @@ class NeuroArch(object):
             if len(tmp):
                 objs = tmp.nodes_as_objs
                 if attr['name'] in [obj.name for obj in objs]:
-                    raise NodeAlreadyExistError("""{cls} {name} already exists under DataSource {ds} version {version}""".format(
+                    warn(NodeAlreadyExistWarning("""{cls} {name} already exists under DataSource {ds} version {version}""".format(
                         cls = cls, name = attr['name'],
                         ds = unique_in.name,
-                        version = unique_in.version))
+                        version = unique_in.version)))
+                    return objs
                 else:
                     for obj in objs:
                         if attr['name'] in obj.synonyms:
-                            raise NodeAlreadyExistError(
+                            warn(NodeAlreadyExistWarning(
                                 """{cls} {name} already exists as a synonym of {cls} {formalname} under DataSource {ds} version {version}""".format(
                                 cls = cls, name = attr['name'], formalname = obj.name,
                                 ds = unique_in.name,
-                                version = unique_in.version))
+                                version = unique_in.version)))
+                            return objs
             # Alternatively, try:
             # tmp = self.sql_query(
             #     """select from {cls} where name = "{name}" or "{name}" in synonyms""".format(
@@ -528,12 +545,14 @@ class NeuroArch(object):
                     rid = unique_in._id, cls = cls, name = attr['name'], ucls = unique_in.element_type))
             if len(tmp):
                 objs = tmp.nodes_as_objs
-                raise NodeAlreadyExistError("""{cls} {name} already exists under DataSource {ds} version {version}""".format(
+                warn(NodeAlreadyExistWarning("""{cls} {name} already exists under DataSource {ds} version {version}""".format(
                     cls = cls, name = attr['name'],
                     ds = unique_in.name,
-                    version = unique_in.version))
+                    version = unique_in.version)))
+                return objs
         else:
             raise TypeError('Model type not understood.')
+        return True
 
     @property
     def default_DataSource(self):
@@ -585,7 +604,9 @@ class NeuroArch(object):
         assert isinstance(stage, str), 'stage must be of str type'
         assert isinstance(sex, str), 'sex must be of str type'
         self._database_writeable_check()
-        self._uniqueness_check('Species', name = name, stage = stage, sex = sex)
+        unique  = self._uniqueness_check('Species', name = name, stage = stage, sex = sex)
+        if not unique:
+            return
 
         if synonyms is None:
             species = self.graph.Species.create(name = name,
@@ -631,7 +652,9 @@ class NeuroArch(object):
         assert isinstance(name, str), 'name must be of str type'
         assert isinstance(version, str), 'version must be of str type'
         self._database_writeable_check()
-        self._uniqueness_check('DataSource', name = name, version = version)
+        unique = self._uniqueness_check('DataSource', name = name, version = version)
+        if not unique:
+            return
 
         ds_info = {'name': name, 'version': version}
         if isinstance(url, str):
@@ -700,8 +723,10 @@ class NeuroArch(object):
         assert isinstance(name, str), 'name must be of str type'
         self._database_writeable_check()
         connect_DataSource = self._default_DataSource if data_source is None else data_source
-        self._uniqueness_check('Subsystem', unique_in = connect_DataSource,
+        unique = self._uniqueness_check('Subsystem', unique_in = connect_DataSource,
                                name = name)
+        if not unique:
+            return
 
         subsystem_info = {'name': name}
         if isinstance(synonyms, list) and all(isinstance(n, str) for n in synonyms):
@@ -761,8 +786,10 @@ class NeuroArch(object):
         assert isinstance(name, str), 'name must be of str type'
         self._database_writeable_check()
         connect_DataSource = self._default_DataSource if data_source is None else data_source
-        self._uniqueness_check('Neuropil', unique_in = connect_DataSource,
+        unique = self._uniqueness_check('Neuropil', unique_in = connect_DataSource,
                                name = name)
+        if not unique:
+            return
 
         neuropil_info = {'name': name}
         if isinstance(synonyms, list) and all(isinstance(n, str) for n in synonyms):
@@ -849,8 +876,10 @@ class NeuroArch(object):
         assert isinstance(name, str), 'name must be of str type'
         self._database_writeable_check()
         connect_DataSource = self._default_DataSource if data_source is None else data_source
-        self._uniqueness_check('Subregion', unique_in = connect_DataSource,
+        unique = self._uniqueness_check('Subregion', unique_in = connect_DataSource,
                                name = name)
+        if not unique:
+            return
 
         subregion_info = {'name': name}
         if isinstance(synonyms, list) and all(isinstance(n, str) for n in synonyms):
@@ -933,8 +962,10 @@ class NeuroArch(object):
         assert isinstance(name, str), 'name must be of str type'
         self._database_writeable_check()
         connect_DataSource = self._default_DataSource if data_source is None else data_source
-        self._uniqueness_check('Tract', unique_in = connect_DataSource,
+        unique = self._uniqueness_check('Tract', unique_in = connect_DataSource,
                                name = name)
+        if not unique:
+            return
 
         tract_info = {'name': name}
         if isinstance(synonyms, list) and all(isinstance(n, str) for n in synonyms):
@@ -1024,8 +1055,10 @@ class NeuroArch(object):
         assert isinstance(name, str), 'name must be of str type'
         self._database_writeable_check()
         connect_DataSource = self._default_DataSource if data_source is None else data_source
-        self._uniqueness_check('Neuron', unique_in = connect_DataSource,
+        unique = self._uniqueness_check('Neuron', unique_in = connect_DataSource,
                                name = uname)
+        if not unique:
+            return
         batch = self.graph.batch()
 
         neuron_name = _to_var_name(uname)
@@ -1168,6 +1201,7 @@ class NeuroArch(object):
                                  batch[:transmitter_node], 'HasData')
             self.link_with_batch(batch, ntds[ds_index],
                                  batch[:transmitter_node], 'Owns')
+
         batch.commit(20)
 
     def add_morphology(self, obj, morphology, data_source = None):
@@ -1241,7 +1275,7 @@ class NeuroArch(object):
                         with open(data['filename'], 'r') as f:
                             mesh_json = json.load(f)
                         faces = mesh_json['faces']
-                        vertices = mesh_json['vertices'] * data.get('scale', 1.0)
+                        vertices = list(np.asarray(mesh_json['vertices']) * data.get('scale', 1.0))
                     elif file_type == '.obj':
                         df = pd.read_csv(data['filename'], sep = ' ',
                                          skip_blank_lines=True,
