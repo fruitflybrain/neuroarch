@@ -37,8 +37,12 @@ def connect(host, db_name, port = 2424, user = 'admin', password = 'admin', init
     graph = Graph(Config('localhost', port, user, password, db_name,
                          'plocal', initial_drop = initial_drop,
                          serialization_type=OrientSerialization.CSV))
-    graph.create_all(models.Node.registry)
-    graph.create_all(models.Relationship.registry)
+    if initial_drop:
+        graph.create_all(models.Node.registry)
+        graph.create_all(models.Relationship.registry)
+    else:
+        graph.include(models.Node.registry)
+        graph.include(models.Relationship.registry)
     return graph
 
 class NotWriteableError(Exception):
