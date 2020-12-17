@@ -95,7 +95,7 @@ relations = {'Neuropil': {'Neuron': 'Owns',
                             'Neuron': 'Owns',
                             'Subregion': 'Owns',
                             'Synapse': 'Owns',
-                            'InferredSynpase': 'Owns',
+                            'InferredSynapse': 'Owns',
                             'MorphologyData': 'Owns',
                             'NeurotransmitterData': 'Owns',
                             'GeneticData': 'Owns',
@@ -547,6 +547,14 @@ class NeuroArch(object):
                     cls = cls, name = attr['name'],
                     ds = unique_in.name,
                     version = unique_in.version))
+        elif cls == 'ArborizationData':
+            if not isinstance(unique_in, (models.Neuron, models.Synapse)):
+                raise TypeError('To check the uniqueness of a ArborizationData instance, unique_in must be a Neuron or a Synapse object')
+            tmp = self.sql_query(
+                """select from (select expand(out(HasData)) from {rid}) where @class = 'ArborizationData' """.format(rid = unique_in._id))
+            if len(tmp):
+                raise NodeAlreadyExistError("""ArborizationData already exists for {node} {uname}. Use NeuroArch.update_{node}_arborization to update the record""".format(
+                    node = unique_in.element_type.lower(), uname = unique_in.uname))
         else:
             raise TypeError('Model type not understood.')
         return True
@@ -1283,6 +1291,74 @@ class NeuroArch(object):
             self.graph.HasData.create(obj, morph_obj)
             self.graph.Owns.create(data_source, morph_obj)
 
+    def add_neuron_arborization(self, neuron, arborization, data_source = None):
+        self._database_writeable_check()
+        self._uniqueness_check('ArborizationData', unique_in = neuron)
+        connect_DataSource = self._default_DataSource if data_source is None else data_source
+
+        neuron_name = _to_var_name(neuron.uname)
+        batch = self.graph.batch()
+
+        if not isinstance(arborization, list):
+            arborization = [arborization]
+        dendrites = {}
+        axons = {}
+        local_neuron = None
+        arb_name = 'arb{}'.format(neuron_name)
+        for data in arborization:
+            if data['type'] in ['neuropil', 'subregion', 'tract']:
+                arborization_type = data['type'].capitalize()
+                # region_arb = _to_var_name(
+                #     '{}Arb{}'.format(arborization_type, name))
+                if isinstance(data['dendrites'], dict) and \
+                        all(isinstance(k, str) and isinstance(v, int) for k, v in data['dendrites'].items()):
+                    pass
+                else:
+                    raise ValueError('dendrites in the {} arborization data not understood.'.format(data['type']))
+                if isinstance(data['axons'], dict) and \
+                        all(isinstance(k, str) and isinstance(v, int) for k, v in data['axons'].items()):
+                    pass
+                else:
+                    raise ValueError('axons in the {} arborization data not understood.'.format(data['type']))
+
+                # create the ArborizesIn edge first so the existence of neurpils/subregions/tracts are automatically checked.
+                arborized_regions = {n: [] for n in set(list(data['dendrites'].keys()) + list(data['axons'].keys()))}
+                for n in data['dendrites']:
+                    arborized_regions[n].append('s')
+                for n in data['axons']:
+                    arborized_regions[n].append('b')
+                for n, v in arborized_regions.items():
+                    self.link_with_batch(batch, neuron,
+                                         self.get(arborization_type, n, connect_DataSource),
+                                         'ArborizesIn',
+                                         kind = v,
+                                         N_dendrites = data['dendrites'].get(n, 0),
+                                         N_axons = data['axons'].get(n, 0))
+                dendrites.update(data['dendrites'])
+                axons.update(data['axons'])
+                if data['type'] == 'neuropil':
+                    if len(arborized_regions) == 1:
+                        local_neuron = list(arborized_regions.keys())[0]
+            else:
+                raise TypeError('Arborization data type of not understood')
+        # create the ArborizationData node
+        batch[arb_name] = batch.ArborizationDatas.create(name = neuron.name,
+                                                         uname = neuron.uname,
+                                                         dendrites = dendrites,
+                                                         axons = axons)
+        self.link_with_batch(batch, neuron,
+                             batch[:arb_name], 'HasData')
+        self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
+        if local_neuron is not None:
+            self.link_with_batch(batch,
+                                 self.get('Neuropil',
+                                          local_neuron,
+                                          connect_DataSource),
+                                 neuron,
+                                 'Owns')
+
+        batch.commit(10)
+
     def add_Synapse(self, pre_neuron, post_neuron,
                     N = None, NHP = None,
                     morphology = None,
@@ -1303,7 +1379,7 @@ class NeuroArch(object):
         N : int (optional)
             The number of synapses from pre_neuron to the post_neuron.
         NHP : int (optional)
-            The number of synpases that can be confirmed with a high probability
+            The number of synapses that can be confirmed with a high probability
         morphology : list of dict (optional)
             Each dict in the list defines a type of morphology of the neuron.
             Must be loaded from a file.
@@ -1407,7 +1483,7 @@ class NeuroArch(object):
             # create the ArborizationData node
             batch[arb_name] = batch.ArborizationDatas.create(name = synapse_name,
                                                              uname = synapse_uname,
-                                                             synpases = synapses)
+                                                             synapses = synapses)
             self.link_with_batch(batch, batch[:synapse_obj_name],
                                  batch[:arb_name], 'HasData')
             self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
@@ -1418,6 +1494,44 @@ class NeuroArch(object):
         if morphology is not None:
             self.add_morphology(synapse, morphology, data_source = connect_DataSource)
         return synapse
+
+    def add_synapse_arborization(self, synapse, arborization, data_source = None):
+        self._database_writeable_check()
+        self._uniqueness_check('ArborizationData', unique_in = synapse)
+        connect_DataSource = self._default_DataSource if data_source is None else data_source
+
+        synapse_obj_name = _to_var_name(synapse.uname)
+        batch = self.graph.batch()
+
+        if not isinstance(arborization, list):
+            arborization = [arborization]
+        synapses = {}
+        arb_name = 'arb{}'.format(synapse_obj_name)
+        for data in arborization:
+            if data['type'] in ['neuropil', 'subregion', 'tract']:
+                arborization_type = data['type'].capitalize()
+                # region_arb = _to_var_name(
+                #     '{}Arb{}'.format(arborization_type, name))
+                if isinstance(data['synapses'], dict) and \
+                        all(isinstance(k, str) and isinstance(v, int) for k, v in data['synapses'].items()):
+                    pass
+                else:
+                    raise ValueError('synapses in the {} distribution data not understood.'.format(data['type']))
+
+                # check if the regions exists
+                for region in data['synapses']:
+                    self.get(arborization_type, region, connect_DataSource)
+                synapses.update(data['synapses'])
+            else:
+                raise TypeError('Arborization data type of not understood')
+        # create the ArborizationData node
+        batch[arb_name] = batch.ArborizationDatas.create(name = synapse.name,
+                                                         uname = synapse.uname,
+                                                         synapses = synapses)
+        self.link_with_batch(batch, synapse,
+                             batch[:arb_name], 'HasData')
+        self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
+        batch.commit(10)
 
     def add_InferredSynapse(self, pre_neuron, post_neuron,
                             N = None, NHP = None,
@@ -1535,7 +1649,7 @@ class NeuroArch(object):
             # create the ArborizationData node
             batch[arb_name] = batch.ArborizationDatas.create(name = synapse_name,
                                                              uname = synapse_uname,
-                                                             synpases = synapses)
+                                                             synapses = synapses)
             self.link_with_batch(batch, batch[:synapse_obj_name],
                                  batch[:arb_name], 'HasData')
             self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
