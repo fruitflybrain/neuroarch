@@ -1170,10 +1170,10 @@ class NeuroArch(object):
             raise ValueError('neurotransmitters must be a str or a list of str')
         if data_sources is None:
             ntds = [self._default_DataSource]*len(neurotransmitters)
-        elif isinstance(data_sources, neuroarch.models.DataSource):
+        elif isinstance(data_sources, models.DataSource):
             ntds = [data_sources]
         elif isinstance(data_sources, list) and \
-                all(isinstance(ds, neuroarch.models.DataSouce) for nt in data_sources):
+                all(isinstance(nt, models.DataSource) for nt in data_sources):
             ntds = data_sources
         else:
             raise ValueError('neurotransmitters must be a DataSource or a list of DataSource')
