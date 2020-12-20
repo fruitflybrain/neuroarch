@@ -19,6 +19,7 @@ import networkx as nx
 import pandas as pd
 from pyorient.ogm import Graph, Config
 from pyorient.serializations import OrientSerialization
+from pyorient.ogm.exceptions import NoResultFound
 
 from neuroarch.utils import is_rid, iterable, chunks
 from neuroarch.diff import diff_nodes, diff_edges
@@ -116,28 +117,28 @@ def _to_var_name(s):
     return r
 
 class NeuroArch(object):
-    def __init__(self, host, db_name, port = 2424, user = 'root', password = 'root', mode = 'r',
+    def __init__(self, db_name, host = 'localhost', port = 2424, user = 'root', password = 'root', mode = 'r',
                  debug = False):
         """
         Create or connect to a NeuroArch object for database access.
 
         Parameters
         ----------
-        host : str
-            IP of the host
         db_name : str
             name of the database to connect to or create
-        port : int
+        host : str (optional)
+            IP of the host
+        port : int (optional)
             binary port of the OrientDB server
-        user : str
+        user : str (optional)
             user name to access the database
-        password : str
+        password : str (optional)
             password to access the database
-        mode : str
+        mode : str (optional)
             'r': read only
             'w': read/write on existing database, if does not exist, one is created.
             'o': read/write and overwrite any of the existing data in the database.
-        debug : bool
+        debug : bool (optional)
             Whether the queries are done in debug mode
         """
         if mode == 'r':
@@ -1706,7 +1707,142 @@ class NeuroArch(object):
     def update_Neuropil(self):
         pass
 
+    def export_tags(self, filename):
+        all_tags = self.sql_query("""select from QueryResult""").nodes_as_objs
 
+        query_results = {}
+        for tag in all_tags:
+            props = tag.get_props()
+            results = tag.out()
+            records = {}
+            try:
+                color = props['color'].copy()
+                visibility = props['visibility'].copy()
+                pinned = props['pinned']
+            except KeyError:
+                print('tag {} is incomplete and thus not exported'.format(tag.tag))
+                continue
+            for n in results:
+                if isinstance(n, models.Neuron):
+                    try:
+                        morphology = [n for n in n.out('HasData') if isinstance(n, models.MorphologyData)][0]
+                    except IndexError:
+                        print('neuron {} not exported in tag {}'.format(n.name if n.uname is None else n.uname, tag.tag))
+                        continue
+                    records[n.uname] = {'type': 'Neuron',
+                                        'referenceId': n.referenceId,
+                                        'visible': visibility.pop(morphology._id, True),
+                                        'color': color.pop(morphology._id, [1.0, 0., 0.]),
+                                        'pinned': morphology._id in pinned}
+                elif isinstance(n, (models.Synapse, models.InferredSynapse)):
+                    try:
+                        morphology = [n for n in n.out('HasData') if isinstance(n, models.MorphologyData)][0]
+                    except IndexError:
+                        print('synapse {} not exported in tag {}'.format(n.name if n.uname is None else n.uname, tag.tag))
+                        continue
+                    records[n.uname] = {'type': n.element_type,
+                                        'pre': n.in_('SendsTo')[0].referenceId,
+                                        'post': n.out('SendsTo')[0].referenceId,
+                                        'visible': visibility.pop(morphology._id, True),
+                                        'color': color.pop(morphology._id, [1.0, 0., 0.]),
+                                        'pinned': morphology._id in pinned}
+                else:
+                    raise TypeError("type of record not understood: {}".format(n.element_type))
+
+            for n in list(visibility.keys()):
+                if n.startswith('#'):
+                    visibility.pop(n)
+            for n in list(color.keys()):
+                if n.startswith('#'):
+                    color.pop(n)
+
+            neuropils = {'visibility': visibility, 'color': color}
+            query_results[tag.tag] = {'target': props['target'],
+                                      'camera': props['camera'],
+                                      'records': records,
+                                      'neuropils': neuropils}
+            settings = props.get('settings', None)
+            if settings is not None:
+                query_results[tag.tag]['settings'] = settings
+
+        with open(filename, 'w') as f:
+            json.dump(query_results, f)
+
+    def import_tags(self, filename):
+        with open(filename) as f:
+            query_results = json.load(f)
+
+        imported_tags = []
+        not_imported = []
+        for tag, r in query_results.items():
+            print(tag)
+            rids_neurons = []
+            rids_synapses = []
+            visibility = r['neuropils']['visibility']
+            color = r['neuropils']['color']
+            pinned = []
+            try:
+                for uname, attr in r['records'].items():
+                    if attr['type'] == 'Neuron':
+                        if attr['referenceId'] is None:
+                            neuron = self.graph.Neurons.query(uname = uname).one()
+                        else:
+                            neuron = self.graph.Neurons.query(referenceId = attr['referenceId']).one()
+                        rids_neurons.append(neuron._id)
+                        obj = neuron
+                    else: # assuming the rest are synapses
+                        if attr['pre'] is None:
+                            pre_neuron = self.graph.Neurons.query(uname = uname.split('--')[0]).one()
+                        else:
+                            pre_neuron = self.graph.Neurons.query(referenceId = attr['pre']).one()
+                        if attr['post'] is None:
+                            post_neuron = self.graph.Neurons.query(uname = uname.split('--')[1]).one()
+                        else:
+                            post_neuron = self.graph.Neurons.query(referenceId = attr['post']).one()
+                        synapse_rids = list(set(n._id for n in pre.out('SendsTo')).intersect(set(n._id for n in post.in_('SendsTo'))))
+                        print(len(synapse_rids))
+                        rids_synapses.append(synapse_rids[0])
+                        synapse = QueryWrapper.from_rids(self.graph, synapse_rids[0]).nodes_as_objs[0]
+                        obj = synapse
+                    morphology = [n for n in obj.out('HasData') if isinstance(n, models.MorphologyData)][0]
+                    visibility[morphology._id] = attr['visible']
+                    color[morphology._id] = attr['color']
+                    if attr['pinned']:
+                        pinned.append(morphology._id)
+            except NoResultFound:
+                not_imported.append(tag)
+                print('Some records are not found in the current database for tag {}, skipping importing'.format(tag))
+                continue
+            kwargs = {'target': r['target'], 'camera': r['camera'],
+                      'color': color, 'visibility': visibility, 'pinned': pinned}
+            settings = r.get('settings', None)
+            if settings is not None:
+                kwargs['settings'] = settings
+            print(len(rids_neurons) + len(rids_synapses))
+            q = QueryWrapper.from_rids(self.graph, *(rids_neurons+rids_synapses))
+            print(len(q))
+            q.tag_query_result_node(tag, True, **kwargs)
+            imported_tags.append(tag)
+        print('The following tags has been imported:\n{}'.format('\n'.join(imported_tags)))
+        print('The following tags were not imported:\n{}'.format('\n'.join(not_imported)))
+        return imported_tags, not_imported
+
+    def remove_tag(self, tag_name):
+        try:
+            tag = self.sql_query("""select from QueryResult where tag = "{}" """.format(tag_name)).nodes_as_objs[0]
+        except IndexError:
+            raise ValueError("tag {} does not exist".format(tag_name))
+
+        print('removing tag {} ...'.format(tag_name))
+        try:
+            for n in tag.out():
+                self.graph.client.command("""delete edge from {} to {}""".format(tag._id, n._id))
+            for n in tag.in_():
+                self.graph.client.command("""delete edge from {} to {}""".format(n._id, tag._id))
+            self.graph.client.command("""delete vertex {}""".format(tag._id))
+        except:
+            raise RuntimeError("tag {} cannot be removed cleanly".format(tag_name))
+        return True
 
 
 def update_neuron(graph, neuron, **kwargs):
