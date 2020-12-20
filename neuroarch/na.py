@@ -1811,6 +1811,9 @@ class NeuroArch(object):
             except NoResultFound:
                 not_imported.append(tag)
                 print('Some records are not found in the current database for tag {}, skipping importing'.format(tag))
+                print('record not found: {}'.format(uname))
+                print('attributes:')
+                print(attr)
                 continue
             kwargs = {'target': r['target'], 'camera': r['camera'],
                       'color': color, 'visibility': visibility, 'pinned': pinned}
