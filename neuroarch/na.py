@@ -1799,8 +1799,7 @@ class NeuroArch(object):
                             post_neuron = self.graph.Neurons.query(uname = uname.split('--')[1]).one()
                         else:
                             post_neuron = self.graph.Neurons.query(referenceId = attr['post']).one()
-                        synapse_rids = list(set(n._id for n in pre.out('SendsTo')).intersect(set(n._id for n in post.in_('SendsTo'))))
-                        print(len(synapse_rids))
+                        synapse_rids = list(set(n._id for n in pre_neuron.out('SendsTo')).intersection(set(n._id for n in post_neuron.in_('SendsTo'))))
                         rids_synapses.append(synapse_rids[0])
                         synapse = QueryWrapper.from_rids(self.graph, synapse_rids[0]).nodes_as_objs[0]
                         obj = synapse
@@ -1818,9 +1817,7 @@ class NeuroArch(object):
             settings = r.get('settings', None)
             if settings is not None:
                 kwargs['settings'] = settings
-            print(len(rids_neurons) + len(rids_synapses))
             q = QueryWrapper.from_rids(self.graph, *(rids_neurons+rids_synapses))
-            print(len(q))
             q.tag_query_result_node(tag, True, **kwargs)
             imported_tags.append(tag)
         print('The following tags has been imported:\n{}'.format('\n'.join(imported_tags)))
