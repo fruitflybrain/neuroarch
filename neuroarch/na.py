@@ -1815,6 +1815,12 @@ class NeuroArch(object):
                 print('attributes:')
                 print(attr)
                 continue
+            except IndexError:
+                not_imported.append(tag)
+                print('Some synapse records are not found when importing tag {}, skipping importing'.format(tag))
+                print('record not found: {}'.format(uname))
+                print('attributes:')
+                print(attr)
             kwargs = {'target': r['target'], 'camera': r['camera'],
                       'color': color, 'visibility': visibility, 'pinned': pinned}
             settings = r.get('settings', None)
