@@ -243,9 +243,9 @@ class PhotoreceptorCell(Neuron):
 class ArborizationData(BioNode):
     element_type = 'ArborizationData'
     element_plural = 'ArborizationDatas'
-    dendrites = EmbeddedMap(nullable=True, unique=False, indexed=True)
-    axons = EmbeddedMap(nullable=True, unique=False, indexed=True)
-    synapses = EmbeddedMap(nullable=True, unique=False, indexed=True)
+    dendrites = EmbeddedMap(linked_to=Integer(), nullable=True, unique=False, indexed=True)
+    axons = EmbeddedMap(linked_to=Integer(), nullable=True, unique=False, indexed=True)
+    synapses = EmbeddedMap(linked_to=Integer(), nullable=True, unique=False, indexed=True)
     name = String(nullable=True, unique=False, indexed=True)
     uname = String(nullable=True, unique=False, indexed=True)
     type = String(nullable=True, unique=False, indexed=True)
@@ -452,7 +452,7 @@ class QueryResult(Node):
     element_plural = 'QueryResults'
     tag =  String(nullable=False, unique=True, indexed=True)
     keywords = EmbeddedList(linked_to=String(), nullable=True, unique=False, indexed=True)
-    FFBOdata = EmbeddedMap(nullable=True, unique=False, indexed=True)
+    FFBOdata = EmbeddedMap(linked_to=String(), nullable=True, unique=False, indexed=True)
 
 class QueryOwns(Relationship):
     label = 'QueryOwns'
