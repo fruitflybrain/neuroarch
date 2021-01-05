@@ -33,11 +33,13 @@ def replace_special_char(text):
     return ''.join(['\\'+s if s in special_char else s for s in text])
 
 
-def connect(host, db_name, port = 2424, user = 'admin', password = 'admin', initial_drop = False):
+def connect(host, db_name, port = 2424, user = 'admin', password = 'admin',
+            initial_drop = False, serialization_type = OrientSerialization.CSV):
     # graph = Graph(Config.from_url(url, user, password, initial_drop))
+
     graph = Graph(Config('localhost', port, user, password, db_name,
                          'plocal', initial_drop = initial_drop,
-                         serialization_type=OrientSerialization.CSV))
+                         serialization_type = serialization_type))
     if initial_drop:
         graph.create_all(models.Node.registry)
         graph.create_all(models.Relationship.registry)
@@ -117,7 +119,8 @@ def _to_var_name(s):
     return r
 
 class NeuroArch(object):
-    def __init__(self, db_name, host = 'localhost', port = 2424, user = 'root', password = 'root', mode = 'r',
+    def __init__(self, db_name, host = 'localhost', port = 2424,
+                 user = 'root', password = 'root', mode = 'r',
                  debug = False):
         """
         Create or connect to a NeuroArch object for database access.
@@ -141,21 +144,33 @@ class NeuroArch(object):
         debug : bool (optional)
             Whether the queries are done in debug mode
         """
+        self._mode = mode
+        self._db_name = db_name
+        self._host = host
+        self._port = port
+        self._user = user
+        self._password = password
+        self.connect()
+
         if mode == 'r':
             initial_drop = False
             self._allow_write = False
+            serialization_type = OrientSerialization.Binary
         elif mode == 'o':
             initial_drop = True
             self._allow_write = True
+            serialization_type = OrientSerialization.CSV
         elif mode == 'w':
             initial_drop = False
             self._allow_write = True
+            serialization_type = OrientSerialization.CSV
         else:
             raise ValueError("""Database mode must be either read ('r'),
                               write ('w'), or overwrite ('o').""")
         self.graph = connect(host, db_name, port = port,
                              user = user, password = password,
-                             initial_drop = initial_drop)
+                             initial_drop = initial_drop,
+                             serialization_type = serialization_type)
         self._debug = debug
         self._default_DataSource = None
         # self._cache = {'DataSource': {},
@@ -168,6 +183,37 @@ class NeuroArch(object):
         #                }
         self._cache = {}
         self._check = True
+
+    def connect(self):
+        if self._mode == 'r':
+            initial_drop = False
+            self._allow_write = False
+            serialization_type = OrientSerialization.Binary
+        elif self._mode == 'o':
+            initial_drop = True
+            self._allow_write = True
+            serialization_type = OrientSerialization.CSV
+        elif self._mode == 'w':
+            initial_drop = False
+            self._allow_write = True
+            serialization_type = OrientSerialization.CSV
+        else:
+            raise ValueError("""Database mode must be either read ('r'),
+                              write ('w'), or overwrite ('o').""")
+        self.graph = connect(self._host, self._db_name, port = self._port,
+                             user = self._user, password = self._password,
+                             initial_drop = initial_drop,
+                             serialization_type = serialization_type)
+
+    def reconnect(self):
+        if self._mode == 'r':
+            serialization_type = OrientSerialization.Binary
+        else:
+            serialization_type = OrientSerialization.CSV
+        self.graph = connect(self._host, self._db_name, port = self._port,
+                             user = self._user, password = self._password,
+                             initial_drop = False,
+                             serialization_type = serialization_type)
 
     def get(self, cls, name, data_source, **attr):
         """
@@ -1049,6 +1095,8 @@ class NeuroArch(object):
         assert isinstance(name, str), 'name must be of str type'
         self._database_writeable_check()
         connect_DataSource = self._default_DataSource if data_source is None else data_source
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
         self._uniqueness_check('Neuron', unique_in = connect_DataSource,
                                name = uname)
         batch = self.graph.batch()
