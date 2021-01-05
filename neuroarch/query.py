@@ -15,8 +15,11 @@ import re
 from datetime import datetime
 import json
 import time
+import sys
+from warnings import warn
 
 from pyorient.ogm import Config, Graph
+from pyorient.exceptions import PyOrientCommandException
 
 from neuroarch.utils import is_rid, iterable, chunks, class_method_timer
 from neuroarch.diff import diff_nodes, diff_edges
@@ -107,6 +110,11 @@ class QueryWrapper(object):
         return len(self._nodes)
 
     @classmethod
+    def empty_query(cls, graph, debug = False):
+        return cls(graph, QueryString('select from #-1:0', 'sql'),
+                   executed = True, execute = False, debug = debug)
+
+    @classmethod
     def from_objs(cls, graph, objs, debug = False):
         """
         Construct a QueryWrapper given a list of OGM objects
@@ -124,10 +132,11 @@ class QueryWrapper(object):
             QueryWrapper instance.
         """
         if len(objs) == 0:
-            return cls(graph,
-                       QueryString(str="""select from DataSource where name = "uiyth" """,
-                                   lang = 'sql'),
-                       init_nodes = set(), executed = True, debug = debug)
+            return self.empty_query(graph, debug = debug)
+            # return cls(graph,
+            #            QueryString(str="""select from DataSource where name = "uiyth" """,
+            #                        lang = 'sql'),
+            #            init_nodes = set(), executed = True, debug = debug)
 
         rids = list(map(lambda x: x._id, objs)).__repr__().replace("'","")
         return cls(graph, QueryString(str='select from '+rids,
@@ -168,11 +177,12 @@ class QueryWrapper(object):
         """
 
         if len(rid_list) == 0:
-            return cls(graph,
-                       QueryString(str="""select from DataSource where name = "uiyth" """,
-                                   lang = 'sql'),
-                       init_nodes = set(), executed = True,
-                       debug = kwargs.get('debug', False))
+            return self.empty_query(graph, debug = kwargs.get('debug', False))
+            # return cls(graph,
+            #            QueryString(str="""select from DataSource where name = "uiyth" """,
+            #                        lang = 'sql'),
+            #            init_nodes = set(), executed = True,
+            #            debug = kwargs.get('debug', False))
         assert all([is_rid(rid) for rid in rid_list])
         return cls(graph, QueryString(str='select from [%s]' % ','.join(rid_list),
                                       lang='sql'),
@@ -196,11 +206,12 @@ class QueryWrapper(object):
             QueryWrapper instance.
         """
         if len(obj_list) == 0:
-            return cls(graph,
-                       QueryString(str="""select from DataSource where name = "uiyth" """,
-                                   lang = 'sql'),
-                       init_nodes = set(), executed = True,
-                       debug = kwargs.get('debug', False))
+            return self.empty_query(graph, debug = kwargs.get('debug', False))
+            # return cls(graph,
+            #            QueryString(str="""select from DataSource where name = "uiyth" """,
+            #                        lang = 'sql'),
+            #            init_nodes = set(), executed = True,
+            #            debug = kwargs.get('debug', False))
         return cls(graph, QueryString(str='select from [%s]' % \
                                       ','.join([obj._id for obj in obj_list]),
                                       lang='sql'),
@@ -635,8 +646,9 @@ class QueryWrapper(object):
 
         rid_list = self._records_to_list(self.nodes)
         if len(rid_list) == 0:
-            return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
-                                  debug = self.debug, edges = self.edges)
+            return self.empty_query(graph, debug = self.debug)
+            # return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
+            #                       debug = self.debug, edges = self.edges)
         classes, attrs, depth, columns = _kwargs(kwargs)
 
         relationships = ["""%s('owns')""" % direction]*levels
@@ -707,8 +719,9 @@ class QueryWrapper(object):
 
         rid_list = self._records_to_list(self.nodes)
         if len(rid_list) == 0:
-            return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
-                                  debug = self.debug, edges = self.edges)
+            return self.empty_query(graph, debug = self.debug)
+            # return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
+            #                       debug = self.debug, edges = self.edges)
 
         classes, attrs, depth, columns = _kwargs(kwargs)
 
@@ -894,6 +907,7 @@ class QueryWrapper(object):
                 q[var] = q_str.format(var = var, rids = ", ".join(rid_list), classes = classes, filters = filters)
                 #dq[var] = dq_str.format(var = var, disp_query = self._disp_query, classes = classes, filters = filters)
         else:
+            var = '$q'
             q['$q'] = q_str.format(var = var, rids = ", ".join(rid_list), classes = classes, filters = "")
             #dq['$q'] = dq_str.format(var = var, disp_query = self._disp_query, classes = classes, filters = "")
 
@@ -1339,8 +1353,9 @@ class QueryWrapper(object):
         class_list = list(self._graph.registry.keys())
         rid_list = self._records_to_list(self.nodes)
         if len(rid_list) == 0:
-            return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
-                                  debug = self.debug, edges = self.edges)
+            return self.empty_query(graph, debug = self.debug)
+            # return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
+            #                       debug = self.debug, edges = self.edges)
         q = dict()
         dq = {}
         q['$q0'] = "$q0 = (select from [%s])" % ", ".join(rid_list)
