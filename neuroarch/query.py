@@ -20,6 +20,7 @@ from warnings import warn
 
 from pyorient.ogm import Config, Graph
 from pyorient.exceptions import PyOrientCommandException
+from pyorient.otypes import OrientRecordLink
 
 from neuroarch.utils import is_rid, iterable, chunks, class_method_timer
 from neuroarch.diff import diff_nodes, diff_edges
@@ -132,7 +133,7 @@ class QueryWrapper(object):
             QueryWrapper instance.
         """
         if len(objs) == 0:
-            return self.empty_query(graph, debug = debug)
+            return cls.empty_query(graph, debug = debug)
             # return cls(graph,
             #            QueryString(str="""select from DataSource where name = "uiyth" """,
             #                        lang = 'sql'),
@@ -177,7 +178,7 @@ class QueryWrapper(object):
         """
 
         if len(rid_list) == 0:
-            return self.empty_query(graph, debug = kwargs.get('debug', False))
+            return cls.empty_query(graph, debug = kwargs.get('debug', False))
             # return cls(graph,
             #            QueryString(str="""select from DataSource where name = "uiyth" """,
             #                        lang = 'sql'),
@@ -206,7 +207,7 @@ class QueryWrapper(object):
             QueryWrapper instance.
         """
         if len(obj_list) == 0:
-            return self.empty_query(graph, debug = kwargs.get('debug', False))
+            return cls.empty_query(graph, debug = kwargs.get('debug', False))
             # return cls(graph,
             #            QueryString(str="""select from DataSource where name = "uiyth" """,
             #                        lang = 'sql'),
@@ -646,7 +647,7 @@ class QueryWrapper(object):
 
         rid_list = self._records_to_list(self.nodes)
         if len(rid_list) == 0:
-            return self.empty_query(graph, debug = self.debug)
+            return self.empty_query(self._graph, debug = self.debug)
             # return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
             #                       debug = self.debug, edges = self.edges)
         classes, attrs, depth, columns = _kwargs(kwargs)
@@ -719,7 +720,7 @@ class QueryWrapper(object):
 
         rid_list = self._records_to_list(self.nodes)
         if len(rid_list) == 0:
-            return self.empty_query(graph, debug = self.debug)
+            return self.empty_query(self._graph, debug = self.debug)
             # return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
             #                       debug = self.debug, edges = self.edges)
 
@@ -856,15 +857,10 @@ class QueryWrapper(object):
 
 
     @class_method_timer
-    def get_data_qw(self, as_type='df', **kwargs):
+    def get_data_qw(self, **kwargs):
         rid_list = self._records_to_list(self.nodes)
         if len(rid_list) == 0:
-            if as_type == 'df':
-                return pd.pd.DataFrame()
-            elif as_type == 'obj':
-                return ([],[])
-            elif as_type == 'nx':
-                return nx.nx.MultiDiGraph()
+            return self.empty_query(self._graph, debug = self.debug)
 
         classes, attrs, depth, columns = _kwargs(kwargs)
         attrs_query = ""
@@ -1353,7 +1349,7 @@ class QueryWrapper(object):
         class_list = list(self._graph.registry.keys())
         rid_list = self._records_to_list(self.nodes)
         if len(rid_list) == 0:
-            return self.empty_query(graph, debug = self.debug)
+            return self.empty_query(self._graph, debug = self.debug)
             # return self.__class__(self._graph, QueryString("""select from DataSource where name = "uiyth" ""","sql"),
             #                       debug = self.debug, edges = self.edges)
         q = dict()
@@ -1446,6 +1442,132 @@ class QueryWrapper(object):
 
         return self.__class__(self._graph, QueryString(query, "sql"), debug = self.debug)
 
+    def path_to_neurons(self, unames, synapse_threshold = 10, max_hops = 2):
+        q1 = self.__class__(self._graph, QueryString("""select from Neuron where uname in ["{}"]""".format('","'.join(unames)), "sql"), debug = self.debug)
+        return self.path_to(q1)
+
+    def direct_path_to(self, q, synapse_threshold = 10, max_hops = 2):
+        return self.path_to(q, synapse_threshold = synapse_threshold,
+                            max_hops = max_hops, exclude_path = True)
+
+    def path_to(self, q, synapse_threshold = 10, max_hops = 2,
+                exclude_path = True, timeout = 120):
+        if max_hops == 0:
+            return self.synapses_to(q, synapse_threshold = synapse_threshold)
+
+        from_neurons = self._records_to_list(self.has(cls = 'Neuron').nodes)
+        to_neurons = self._records_to_list(q.has(cls = 'Neuron').nodes)
+        exclude_rids = set(from_neurons + to_neurons)
+        path_rids = set()
+        all_paths = []
+        used_time = 0
+        try:
+            for hop in range(1, max_hops+1):
+                template = """
+                -SendsTo->
+                {{class: Neuron, as: hop{hop}, where: (@rid not in [{exclude_rids}])}}
+                -SendsTo->
+                {{class: Synapse, where: (N >= {synapse_threshold})}}
+                """
+
+                query = """select from(
+                MATCH
+                {{class: Neuron, as: source, where: (@rid in [{from_rids}]) }}
+                -SendsTo->
+                {{class: Synapse, where: (N >= {synapse_threshold})}}
+                """.format(from_rids = ','.join(from_neurons),
+                           synapse_threshold = synapse_threshold) \
+                + \
+                ''.join([
+                template.format(hop = i+1,
+                                synapse_threshold = synapse_threshold,
+                                exclude_rids = ','.join(exclude_rids)) for i in range(hop)
+                ]) \
+                + \
+                """
+                -SendsTo->
+                {{class: Neuron, as: dest, where: (@rid in [{to_rids}]) }}
+                return source, {hops}, dest)
+                timeout {timeout}""".format(
+                    to_rids = ','.join(to_neurons),
+                    hops = ','.join(['hop{}'.format(i+1) for i in range(hop)]),
+                    timeout = int((timeout-used_time)*1000))
+
+                start = time.time()
+                q =  self._graph.client.command(query)
+                used_time += time.time()-start
+
+                paths = [[get_hash(node.oRecordData['source'])] + \
+                         [get_hash(node.oRecordData['hop{}'.format(i+1)]) for i in range(hop)] + \
+                         [get_hash(node.oRecordData['dest'])] for node in q]
+                all_paths.extend(paths)
+                #sum([[node.oRecordData['hop{}'.format(i+1)].get_hash() for node in q] for i in range(hop)], [])
+                path_rids.update(set(sum([path[1:-1] for path in paths], [])))
+                if exclude_path:
+                    exclude_rids.update(path_rids)
+        except PyOrientCommandException:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            # pdb.set_trace()
+            if 'timeout' in exc_value.errors[0]:
+                if hop == 1:
+                    warn('Execution timeout, no results returned')
+                else:
+                    warn('Execution timeout, returnning results for maximum of {} hop(s)'.format(hop-1),
+                         RuntimeWarning)
+            else:
+                raise
+        return self.from_rids(self._graph, *list(path_rids)), all_paths
+
+
+    def path_to2(self, q, synapse_threshold = 10, max_hops = 2,
+                 exclude_path = True, timeout = 30):
+        if max_hops == 0:
+            return self.synapses_to(q, synapse_threshold = synapse_threshold)
+        from_neurons = self._records_to_list(self.has(cls = 'Neuron').nodes)
+        to_neurons = self._records_to_list(q.has(cls = 'Neuron').nodes)
+        query = """
+        select distince(pp) from
+        (MATCH
+        {{class: Neuron, where: (@rid in [{from_rids}]) }}
+        -SendsTo->{{}}-SendsTo->
+        {{ maxdepth: {nhop}, where: ($depth%2 = 1 and @rid not in [{exclude_rids}]), pathAlias: pp}}
+        -SendsTo->{{}}-SendsTo->
+        {{class: Neuron, where: (@rid in [{to_rids}]) }}
+        return pp) timeout {timeout}""".format(from_rids = ','.join(from_neurons),
+                   exclude_rids = ','.join(exclude_rids),
+                   to_rids = ','.join(to_neurons),
+                   nhop = max_hops+1,
+                   timeout = timeout * 1000)
+
+
+    def synapses_to(self, q, synapse_threshold = 10):
+        from_neurons = self._records_to_list(self.has(cls = 'Neuron').nodes)
+        to_neurons = self._records_to_list(q.has(cls = 'Neuron').nodes)
+        q = self._graph.client.command(
+        """
+        MATCH
+        {{class: Neuron, where: (@rid in [{from_rids}]) }}
+        -SendsTo->
+        {{class: Synapse, as: synapses, where: (N >= {synapse_threshold})}}
+        -SendsTo->
+        {{class: Neuron, where: (@rid in [{to_rids}]) }}
+        return synapses
+        """.format(from_rids = ','.join(from_neurons),
+                   to_rids = ','.join(to_neurons),
+                   synapse_threshold = synapse_threshold)
+        )
+        # synapse_rids = []
+        # for node in q:
+        #     data = node.oRecordData['synapses']
+        #     if isinstance(data, tuple):
+        #         if data[0] == 'OrientRecordLink':
+        #             rid = '#{}:{}'.format(data[1], data[2])
+        #             synapse_rids.append(rid)
+        #     elif isinstance(data, OrientRecordLink):
+        #         synapse_rids.append(data.get_hash())
+        # synapse_rids = list(set(synapse_rids))
+        synapse_rids = list(set([get_hash(node.oRecordData['synapses']) for node in q]))
+        return self.from_rids(self._graph, *synapse_rids)
 
     def export_graph(self, graph_name, as_type='df', stored_as='gpickle', compression=''):
         g = self.get_as(as_type)
@@ -1624,6 +1746,15 @@ def _kwargs(kwargs):
                     attrs.append("%s in %s" % (k, v))
     return classes, attrs, depth, columns
 
+def get_hash(r):
+    if isinstance(r, tuple):
+        if r[0] == 'OrientRecordLink':
+            rid = '#{}:{}'.format(r[1], r[2])
+        else:
+            raise TypeError('Not sure what the output format is.')
+    elif isinstance(r, OrientRecordLink):
+        rid = r.get_hash()
+    return rid
 
 
 if __name__ == '__main__':

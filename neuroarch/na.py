@@ -1734,10 +1734,10 @@ class NeuroArch(object):
                                 for key, value in attr.items()])))
         return True
 
-    def create_NeuronModel(self):
+    def create_NeuronModel(self, neuron, circuit_model):
         pass
 
-    def remove_Neuron(self):
+    def remove_Neuron(self, neuron):
         pass
 
     def remove_Synapse(self):
