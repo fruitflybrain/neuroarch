@@ -238,7 +238,7 @@ class GapJunction(BioNode):
 class PhotoreceptorCell(Neuron):
     element_type = 'PhotoreceptorCell'
     element_plural = 'PhotoreceptorCells'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class ArborizationData(BioNode):
     element_type = 'ArborizationData'
@@ -288,6 +288,15 @@ class Version(DesignNode):
     element_plural = 'Versions'
     version = String(nullable=False, unique=False, indexed=True)
 
+class ExecutableCircuit(DesignNode):
+    name = String(nullable=False, unique=False, indexed=True)
+    version = String(nullable=True, unique=False, indexed=True)
+
+class CircuitDiagram(DesignNode):
+    name = String(nullable=False, unique=False, indexed=True)
+    version = String(nullable=True, unique=False, indexed=True)
+    diagram = String(nullable=False, unique=False, indexed=False)
+
 class LPU(DesignNode):
     element_type = 'LPU'
     element_plural = 'LPUs'
@@ -320,22 +329,22 @@ class CircuitModel(DesignNode):
 class OmmatidiumModel(CircuitModel):
     element_type = 'OmmatidiumModel'
     element_plural = 'OmmatidiumModels'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class CartridgeModel(CircuitModel):
     element_type = 'CartridgeModel'
     element_plural = 'CartridgeModels'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class CRModel(CircuitModel):
     element_type = 'CRModel'
     element_plural = 'CRModels'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class ColumnModel(CircuitModel):
     element_type = 'ColumnModel'
     element_plural = 'ColumnModels'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class NeuronModel(DesignNode):
     element_type = 'NeuronModel'
@@ -360,73 +369,73 @@ class DendriteModel(DesignNode):
 class PhotoreceptorModel(MembraneModel):
     element_type = 'PhotoreceptorModel'
     element_plural = 'PhotoreceptorModels'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 # Added for AdaptiveNarx
 class NarxAdaptive(MembraneModel):
     element_type = 'NarxAdaptive'
     element_plural = 'NarxAdaptives'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class MorrisLecar(MembraneModel):
     element_type = 'MorrisLecar'
     element_plural = 'MorrisLecars'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class LeakyIAF(AxonHillockModel):
     element_type = 'LeakyIAF'
     element_plural = 'LeakyIAFs'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class LeakyIAFwithRefractoryPeriod(AxonHillockModel):
     element_type = 'LeakyIAFwithRefractoryPeriod'
     element_plural = 'LeakyIAFwithRefractoryPeriods'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class BufferVoltage(MembraneModel):
     element_type = 'BufferVoltage'
     element_plural = 'BufferVoltages'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class BufferPhoton(MembraneModel):
     element_type = 'BufferPhoton'
     element_plural = 'Bufferphotons'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class Aggregator(DendriteModel):
     element_type = 'Aggregator'
     element_plural = 'Aggregators'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class SynapseModel(DesignNode):
     element_type = 'SynapseModel'
     element_plural = 'SynapseModels'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class AlphaSynapse(SynapseModel):
     element_type = 'AlphaSynapse'
     element_plural = 'AlphaSynapses'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class PowerGPotGPot(SynapseModel):
     element_type = 'PowerGPotGPot'
     element_plural = 'PowerGPotGPots'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class SynapseAMPA(SynapseModel):
     element_type = 'SynapseAMPA'
     element_plural = 'SynapseAMPAs'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class SynapseGABA(SynapseModel):
     element_type = 'SynapseGABA'
     element_plural = 'SynapseGABAs'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class SynapseNMDA(SynapseModel):
     element_type = 'SynapseNMDA'
     element_plural = 'SynapseNMDAs'
-    name = String(nullable=False, unique=False, indexed=True)
+    #name = String(nullable=False, unique=False, indexed=True)
 
 class Owns(Relationship):
     label = 'Owns'
@@ -463,3 +472,5 @@ class Models(Relationship):
 
 class HasQueryResults(Relationship):
     label = 'HasQueryResults'
+
+Data_Types = ['GeneticData', 'NeurotransmitterData', 'MorphologyData', 'ArborizationData']

@@ -305,6 +305,12 @@ class QueryWrapper(object):
         return self._query
 
     @property
+    def node_rids(self):
+        if not self._executed:
+            self.execute()
+        return [node._id for node in self._nodes.values()]
+
+    @property
     def nodes(self):
         """
         Set of node records retrieved by query.

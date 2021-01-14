@@ -13,6 +13,7 @@ from tqdm import tqdm
 import pdb
 import os
 from warnings import warn
+import copy
 
 import numpy as np
 import networkx as nx
@@ -28,6 +29,8 @@ from neuroarch.query import QueryWrapper, QueryString, _kwargs
 import neuroarch.models as models
 
 special_char = set("*?+\.()[]|{}^$'")
+
+rid_pattern = re.compile("#[0-9]+:[0-9]+")
 
 def replace_special_char(text):
     return ''.join(['\\'+s if s in special_char else s for s in text])
@@ -72,6 +75,9 @@ class DuplicateNodeWarning(Warning):
     """NeuroArch got duplicate nodes"""
     pass
 
+class DataSourceError(Exception):
+    """The node is not owned by a DataSource"""
+    pass
 
 relations = {'Neuropil': {'Neuron': 'Owns',
                           'MorphologyData': 'HasData',
@@ -117,6 +123,7 @@ def _to_var_name(s):
     if len(r) and r[0].isdigit():
         r = 'a'+r
     return r
+
 
 class NeuroArch(object):
     def __init__(self, db_name, host = 'localhost', port = 2424,
@@ -215,6 +222,12 @@ class NeuroArch(object):
                              initial_drop = False,
                              serialization_type = serialization_type)
 
+    def _get_obj_from_str(self, obj):
+        if isinstance(obj, str) and rid_pattern.fullmatch(obj) is not None:
+            return QueryWrapper.from_rids(self.graph, obj).nodes_as_objs[0]
+        else:
+            return obj
+
     def get(self, cls, name, data_source, **attr):
         """
         Retrieve an object with name under data_source,
@@ -264,7 +277,7 @@ class NeuroArch(object):
                 else:
                     self.set(cls, name, obj, None)
             elif len(q) > 1:
-                raise ValueError('Hit more than one instance of {} with name {} in database.'.format(cls, name))
+                raise DuplicateNodeError('Hit more than one instance of {} with name {} in database.'.format(cls, name))
             else:
                 raise RecordNotFoundError('{} {} not found in database.'.format(cls, name))
         return obj
@@ -481,21 +494,21 @@ class NeuroArch(object):
             if len(tmp):
                 objs = tmp.nodes_as_objs
                 if attr['name'] in [obj.name for obj in objs]:
-                    raise NodeAlreadyExistError("""Species {name} at {stage} stage ({sex}) already exists""".format(
-                        name = attr['name'], stage = attr['stage'], sex = attr['sex']))
+                    raise NodeAlreadyExistError("""Species {name} at {stage} stage ({sex}) already exists with rid = {rid}""".format(
+                        name = attr['name'], stage = attr['stage'], sex = attr['sex'], rid = objs[0]._id))
                 else:
                     for obj in objs:
                         if attr['name'] in obj.synonyms:
                             raise NodeAlreadyExistError(
-                                """Species {name} (as its synonym) at {stage} stage ({sex}) already exists, use name {formalname} instead""".format(
-                                name = attr['name'], stage = attr['stage'], sex = attr['sex'], formalname = obj.name))
+                                """Species {name} (as its synonym) at {stage} stage ({sex}) already exists with rid = {rid}, use name {formalname} instead""".format(
+                                name = attr['name'], stage = attr['stage'], sex = attr['sex'], rid = obj._id, formalname = obj.name))
         elif cls == 'DataSource':
             objs = self.find_objs('DataSource', name=attr['name'], version=attr['version'])
             #if self.exists(cls, name = attr['name'], version = attr['version']):
             if len(objs):
-                raise NodeAlreadyExistError("""{} Node with attributes {} already exists""".format(
+                raise NodeAlreadyExistError("""{} Node with attributes {} already exists with rid = {}""".format(
                                 cls, ', '.join(["""{} = {}""".format(key, value) \
-                                for key, value in attr.items()])))
+                                for key, value in attr.items()]), objs[0]._id))
         elif cls == 'Neurotransmitter':
             tmp = self.sql_query(
                 """select from Neurotransmitter where name = "{name}" or "{name}" in synonyms""".format(
@@ -503,15 +516,15 @@ class NeuroArch(object):
             if len(tmp):
                 objs = tmp.nodes_as_objs
                 if attr['name'] in [obj.name for obj in objs]:
-                    raise NodeAlreadyExistError("""Neurotransmitter {name} already exists""".format(
-                        name = attr['name']))
+                    raise NodeAlreadyExistError("""Neurotransmitter {name} already exists with rid = {rid}""".format(
+                        name = attr['name'], rid = objs[0]._id))
                     return objs
                 else:
                     for obj in objs:
                         if attr['name'] in obj.synonyms:
                             raise NodeAlreadyExistError(
-                                """Neurotransmitter {name} (as its synonym) already exists, use name {formalname} instead""".format(
-                                name = attr['name'], formalname = obj.name))
+                                """Neurotransmitter {name} (as its synonym) already exists with rid = {rid}, use name {formalname} instead""".format(
+                                name = attr['name'], rid = obj._id, formalname = obj.name))
         elif cls in ['Subsystem', 'Neuropil', 'Subregion', 'Tract']:
             # TODO: synonyms are not checked against existing names and synonyms
             if not isinstance(unique_in, models.DataSource):
@@ -522,18 +535,18 @@ class NeuroArch(object):
             if len(tmp):
                 objs = tmp.nodes_as_objs
                 if attr['name'] in [obj.name for obj in objs]:
-                    raise NodeAlreadyExistError("""{cls} {name} already exists under DataSource {ds} version {version}""".format(
+                    raise NodeAlreadyExistError("""{cls} {name} already exists under DataSource {ds} version {version}, rid = {rid}""".format(
                         cls = cls, name = attr['name'],
                         ds = unique_in.name,
-                        version = unique_in.version))
+                        version = unique_in.version, rid = objs[0]._id))
                 else:
                     for obj in objs:
                         if attr['name'] in obj.synonyms:
                             raise NodeAlreadyExistError(
-                                """{cls} {name} already exists as a synonym of {cls} {formalname} under DataSource {ds} version {version}""".format(
+                                """{cls} {name} already exists as a synonym of {cls} {formalname} under DataSource {ds} version {version}, rid = {rid}""".format(
                                 cls = cls, name = attr['name'], formalname = obj.name,
                                 ds = unique_in.name,
-                                version = unique_in.version))
+                                version = unique_in.version, rid = obj._id))
             # Alternatively, try:
             # tmp = self.sql_query(
             #     """select from {cls} where name = "{name}" or "{name}" in synonyms""".format(
@@ -590,8 +603,8 @@ class NeuroArch(object):
                     rid = unique_in._id, cls = cls, name = attr['name'], ucls = unique_in.element_type))
             if len(tmp):
                 objs = tmp.nodes_as_objs
-                raise NodeAlreadyExistError("""{cls} {name} already exists under DataSource {ds} version {version}""".format(
-                    cls = cls, name = attr['name'],
+                raise NodeAlreadyExistError("""{cls} {name} already exists with rid = {rid}, under DataSource {ds} version {version}""".format(
+                    cls = cls, name = attr['name'], rid = tmp[0]._id,
                     ds = unique_in.name,
                     version = unique_in.version))
         elif cls == 'ArborizationData':
@@ -600,8 +613,8 @@ class NeuroArch(object):
             tmp = self.sql_query(
                 """select from (select expand(out(HasData)) from {rid}) where @class = 'ArborizationData' """.format(rid = unique_in._id))
             if len(tmp):
-                raise NodeAlreadyExistError("""ArborizationData already exists for {node} {uname}. Use NeuroArch.update_{node}_arborization to update the record""".format(
-                    node = unique_in.element_type.lower(), uname = unique_in.uname))
+                raise NodeAlreadyExistError("""ArborizationData already exists for {node} {uname} with rid = {rid}. Use NeuroArch.update_{node}_arborization to update the record""".format(
+                    node = unique_in.element_type.lower(), rid = tmp.nodes_as_objs[0]._id, uname = unique_in.uname))
         else:
             raise TypeError('Model type not understood.')
         return True
@@ -624,7 +637,8 @@ class NeuroArch(object):
         data_source : pyorient obj
             containing an pyorient vertex class
         """
-        self._default_DataSource = data_source
+
+        self._default_DataSource = self._get_obj_from_str(data_source)
         print("Setting default DataSource to {} version {}".format(
                             data_source.name,
                             getattr(data_source, 'version', 'not specified')))
@@ -634,7 +648,7 @@ class NeuroArch(object):
         print("removing default DataSource")
         self._default_DataSource = None
 
-    def add_species(self, name, stage, sex, synonyms = None):
+    def add_Species(self, name, stage, sex, synonyms = None):
         """
         Add a Species.
 
@@ -720,6 +734,7 @@ class NeuroArch(object):
         self.set('DataSource', name, datasource, data_source = datasource)
 
         if species is not None:
+            species = self._get_obj_from_str(species)
             if isinstance(species, models.Species):
                 species_obj = species
             elif isinstance(species, dict):
@@ -733,7 +748,7 @@ class NeuroArch(object):
                         'Multiple Species nodes with name = {name} and stage = {stage} exists'.format(
                             name = species['name'], stage = species['stage']))
                 else: # 0 hit
-                    species_obj = self.add_species(
+                    species_obj = self.add_Species(
                                         species['name'], species['stage'],
                                         synonyms = species.get('synonyms', None))
             else:
@@ -770,7 +785,10 @@ class NeuroArch(object):
         """
         assert isinstance(name, str), 'name must be of str type'
         self._database_writeable_check()
-        connect_DataSource = self._default_DataSource if data_source is None else data_source
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
         self._uniqueness_check('Subsystem', unique_in = connect_DataSource,
                                name = name)
 
@@ -831,7 +849,10 @@ class NeuroArch(object):
         """
         assert isinstance(name, str), 'name must be of str type'
         self._database_writeable_check()
-        connect_DataSource = self._default_DataSource if data_source is None else data_source
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
         self._uniqueness_check('Neuropil', unique_in = connect_DataSource,
                                name = name)
 
@@ -919,7 +940,10 @@ class NeuroArch(object):
         """
         assert isinstance(name, str), 'name must be of str type'
         self._database_writeable_check()
-        connect_DataSource = self._default_DataSource if data_source is None else data_source
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
         self._uniqueness_check('Subregion', unique_in = connect_DataSource,
                                name = name)
 
@@ -1003,7 +1027,10 @@ class NeuroArch(object):
         """
         assert isinstance(name, str), 'name must be of str type'
         self._database_writeable_check()
-        connect_DataSource = self._default_DataSource if data_source is None else data_source
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
         self._uniqueness_check('Tract', unique_in = connect_DataSource,
                                name = name)
 
@@ -1094,7 +1121,8 @@ class NeuroArch(object):
         assert isinstance(uname, str), 'uname must be of str type'
         assert isinstance(name, str), 'name must be of str type'
         self._database_writeable_check()
-        connect_DataSource = self._default_DataSource if data_source is None else data_source
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
         if connect_DataSource is None:
             raise TypeError('Default DataSource is missing.')
         self._uniqueness_check('Neuron', unique_in = connect_DataSource,
@@ -1193,7 +1221,7 @@ class NeuroArch(object):
 
         if neurotransmitters is not None:
             self.add_neurotransmitter(neuron, neurotransmitters,
-                                      data_sources = neurotransmitters_datasources)
+                                      data_sources = neurotransmitters_datasources if neurotransmitters_datasources is not None else data_source)
         if morphology is not None:
             self.add_morphology(neuron, morphology, data_source = connect_DataSource)
         return neuron
@@ -1213,19 +1241,24 @@ class NeuroArch(object):
             neurotransmitters, and have one to one corresponsdence in the same order.
         """
         self._database_writeable_check()
+        neuron = self._get_obj_from_str(neuron)
+        if not isinstance(neuron, models.Neuron):
+            raise ValueError("Input not a models.Neuron object")
         if not isinstance(neurotransmitters, list):
             neurotransmitters = [neurotransmitters]
         if not all(isinstance(a, str) for a in neurotransmitters):
             raise ValueError('neurotransmitters must be a str or a list of str')
         if data_sources is None:
             ntds = [self._default_DataSource]*len(neurotransmitters)
-        elif isinstance(data_sources, models.DataSource):
-            ntds = [data_sources]
-        elif isinstance(data_sources, list) and \
-                all(isinstance(nt, models.DataSource) for nt in data_sources):
-            ntds = data_sources
         else:
-            raise ValueError('neurotransmitters must be a DataSource or a list of DataSource')
+            data_souces = self._get_obj_from_str(data_sources)
+            if isinstance(data_sources, models.DataSource):
+                ntds = [data_sources]*len(neurotransmitters)
+            elif isinstance(data_sources, list):
+                ntds = [self._get_obj_from_str(n) for n in data_sources]
+                assert all(isinstance(nt, models.DataSource) for nt in data_sources)
+            else:
+                raise ValueError('neurotransmitters must be a DataSource or a list of DataSource')
         assert len(ntds) == len(neurotransmitters), \
                'length of data_sources must match that of neurotransmitters'
 
@@ -1267,7 +1300,11 @@ class NeuroArch(object):
             The datasource. If not specified, default DataSource will be used.
         """
         self._database_writeable_check()
-        connect_DataSource = self._default_DataSource if data_source is None else data_source
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
+        obj = self._get_obj_from_str(obj)
         if not isinstance(morphology, list):
             morphology = [morphology]
         for i, data in enumerate(morphology):
@@ -1342,8 +1379,14 @@ class NeuroArch(object):
 
     def add_neuron_arborization(self, neuron, arborization, data_source = None):
         self._database_writeable_check()
+        neuron = self._get_obj_from_str(neuron)
+        if not isinstance(neuron, models.Neuron):
+            raise ValueError('Input is not a models.Neuron object')
         self._uniqueness_check('ArborizationData', unique_in = neuron)
-        connect_DataSource = self._default_DataSource if data_source is None else data_source
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
 
         neuron_name = _to_var_name(neuron.uname)
         batch = self.graph.batch()
@@ -1421,10 +1464,10 @@ class NeuroArch(object):
         ----------
         pre_neuron : str or models.Neuron
             The neuron that is presynaptic in the synapse.
-            If str, must be the uname of the presynaptic neuron.
+            If str, must be the uname or rid of the presynaptic neuron.
         post_neuron : str or models.Neuron
             The neuron that is postsynaptic in the synapse.
-            If str, must be the uname of the postsynaptic neuron.
+            If str, must be the uname or rid of the postsynaptic neuron.
         N : int (optional)
             The number of synapses from pre_neuron to the post_neuron.
         NHP : int (optional)
@@ -1457,10 +1500,15 @@ class NeuroArch(object):
             The created synapse object.
         """
         self._database_writeable_check()
-        connect_DataSource = self._default_DataSource if data_source is None else data_source
+        connect_DataSource = self._default_DataSource if data_source is None \
+                              else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
         # self._uniqueness_check('Synapse', unique_in = connect_DataSource,
                                # name = name)
 
+        pre_neuron = self._get_obj_from_str(pre_neuron)
+        post_neuron = self._get_obj_from_str(post_neuron)
         if isinstance(pre_neuron, models.Neuron):
             pre_neuron_obj = pre_neuron
             pre_neuron_name = pre_neuron.name
@@ -1546,8 +1594,14 @@ class NeuroArch(object):
 
     def add_synapse_arborization(self, synapse, arborization, data_source = None):
         self._database_writeable_check()
+        synapse = self._get_obj_from_str(synapse)
+        if not isinstance(synapse, models.Synapse):
+            raise ValueError('Input is not a models.Synapse object')
         self._uniqueness_check('ArborizationData', unique_in = synapse)
-        connect_DataSource = self._default_DataSource if data_source is None else data_source
+        connect_DataSource = self._default_DataSource if data_source is None \
+                              else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
 
         synapse_obj_name = _to_var_name(synapse.uname)
         batch = self.graph.batch()
@@ -1629,10 +1683,15 @@ class NeuroArch(object):
             The created synapse object.
         """
         self._database_writeable_check()
-        connect_DataSource = self._default_DataSource if data_source is None else data_source
+        connect_DataSource = self._default_DataSource if data_source is None \
+                              else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
         # self._uniqueness_check('Synapse', unique_in = connect_DataSource,
                                # name = name)
 
+        pre_neuron = self._get_obj_from_str(pre_neuron)
+        post_neuron = self._get_obj_from_str(post_neuron)
         if isinstance(pre_neuron, models.Neuron):
             pre_neuron_obj = pre_neuron
             pre_neuron_name = pre_neuron.name
@@ -1734,26 +1793,519 @@ class NeuroArch(object):
                                 for key, value in attr.items()])))
         return True
 
-    def create_NeuronModel(self, neuron, circuit_model):
+    def create_LPU(self):
         pass
 
-    def remove_Neuron(self, neuron):
-        pass
+    def create_NeuronModel(self, neuron, model, name, circuit_model = None, **kwargs):
+        self._database_writeable_check()
+        neuron = self._get_obj_from_str(neuron)
+        assert isinstance(neuron, models.Neuron), \
+               'neuron must be either a Neuron object or its rid'
+        if circuit_model is not None:
+            self._uniqueness_check('NeuronModel', unique_in = circuit_model,
+                                   name = name)
+        model_cls = getattr(models, model)
+        assert issubclass(model_cls, models.NeuronModel), 'Model must be a str of NeuronModel class name'
+        model_obj = getattr(self.graph, model_cls.element_plural).create(name = name, **kwargs)
+        if circuit_model is not None:
+            self.link(model_obj, neuron, 'Models', version = circuit_model.name)
+        return model_obj
 
-    def remove_Synapse(self):
-        pass
+    def create_SynapseModel(self, synapse, model, name, circuit_model = None, **kwags):
+        self._database_writeable_check()
+        synapse = self._get_obj_from_str(synapse)
+        assert isinstance(synapse, (models.Synapse, models.InferredSynapse)), \
+               'synapse must be either a Synapse object or its rid'
+        if circuit_model is not None:
+            self._uniqueness_check('SynapseModel', unique_in = circuit_model,
+                                   name = name)
+        model_cls = getattr(models, model)
+        assert issubclass(model_cls, models.SynapseModel), 'Model must be a str of SynapseModel class name'
+        model_obj = getattr(self.graph, model_cls.element_plural).create(name = name, **kwargs)
+        if circuit_model is not None:
+            self.link(model_obj, neuron, 'Models', version = circuit_model.name)
+        return model_obj
+
+    def remove_Neurons(self, neurons, data_source = None, safe = True):
+        """
+        Remove neurons
+
+        Parameters
+        ----------
+        neurons: list of models.Neuron or str
+            The neurons to be removed from database.
+            All synapses, data associated with these neurons will also be removed
+        data_source: model.DataSource
+            The DataSource from which the neurons will be moved,
+            if str (as uname of neurons) are provided to the neurons parameter.
+        safe: bool
+            If safe is True, will check every item in the neurons list
+            if it is owned by the data_source. Otherwise, if models.Neuron is
+            provided, will not check.
+        """
+        self._database_writeable_check()
+        connect_DataSource = self._default_DataSource if data_source is None \
+                             else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
+
+        if not isinstance(neurons, list):
+            neurons = [self._get_obj_from_str(neurons)]
+        else:
+            neurons = [self._get_obj_from_str(neuron) for neuron in neurons]
+
+        neuron_objs = []
+        neuron_names = []
+        for neuron in neurons:
+            if isinstance(neuron, models.Neuron):
+                if safe:
+                    if not self._is_in_datasource(connect_DataSource, neuron):
+                        raise DataSourceError(
+                            'Neuron object {} with rid {} does not belong to DataSource {}'.format(
+                            neuron.uname, neuron._id, connect_DataSource.name))
+                neuron_objs.append(neuron)
+            elif isinstance(neuron, str):
+                neuron_name = neuron
+                try:
+                    neuron_obj = self.get('Neuron', neuron_name, connect_DataSource)
+                except RecordNotFoundError:
+                    Warning('Neuron {} not found in the database, no need to remove'.format(neuron_name))
+                except DuplicateNodeError:
+                    Warning('Neuron {} found to have more than 1 copy, removing all.')
+                    objs = self._find('Neuron', data_source, uname = neuron_name).nodes_as_objs
+                    neuron_objs.extend(objs)
+                except:
+                    raise
+            else:
+                raise TypeError('Parameter neuron must be either a str or a Neuron object.')
+
+        q = QueryWrapper.from_objs(self.graph, neuron_objs)
+        post_synapses = outgoing_synapses(q)
+        pre_synapses = incoming_synapses(q)
+        data = get_data(q)
+        any_thing_owned = q.gen_traversal_out(['Owns'], min_depth = 1)
+        rids_to_delete = set(
+            q.node_rids+post_synapses.node_rids+pre_synapses.node_rids+\
+            data.node_rids+any_thing_owned.node_rids
+            )
+        self.remove_by_rids(rids_to_delete)
+
+
+    def remove_Synapses(self, synapses, data_source = None, safe = True):
+        """
+        Remove synapses.
+
+        Parameters
+        ----------
+        synapses: list of models.Synapse, models.InferredSynapse or str
+            The synapses to be removed from database.
+            All data associated with these neurons will also be removed
+        data_source: model.DataSource
+            The DataSource from which the synapses will be found will be removed,
+            if str (as uname of synapses) are provided to the neuron parameter.
+        safe: bool
+            If safe is True, will check every item in the neurons list
+            if it is owned by the data_source. Otherwise, if models.Neuron is
+            provided, will not check.
+        """
+        self._database_writeable_check()
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
+
+        if not isinstance(synapses, list):
+            synapses = [self._get_obj_from_str(synapses)]
+        else:
+            synapses = [self._get_obj_from_str(synapse) for synapse in synapses]
+
+        synapse_objs = []
+        for synapse in synaspes:
+            if isinstance(synapse, (models.Synapse, models.InferredSynapse)):
+                if safe:
+                    if not self._is_in_datasource(connect_DataSource, synapse):
+                        raise DataSourceError(
+                            'Synapse {} is not in datasource {}'.format(
+                            synapse.uname, connect_DataSource.name))
+                synapse_objs.append(synapse)
+
+            elif isinstance(synapse, str):
+                synapse_name = synapse
+                try:
+                    synapse_obj = self.get('Synapse', synapse_name, connect_DataSource)
+                except RecordNotFoundError:
+                    try:
+                        synapse_obj = self.get('InferredSynapse', synapse_name, connect_DataSource)
+                    except RecordNotFoundError:
+                        Warning('synapse/InferredSynapse {} not found in the database, no need to remove'.format(synapse_name))
+                    except DuplicateNodeError:
+                        Warning('Synapse {} found to have more than 1 copy, removing all.')
+                        objs = self._find('InferredSynapse', data_source, uname = synapse_name).nodes_as_objs
+                        synapse_objs.extend(objs)
+                    except:
+                        raise
+                except DuplicateNodeError:
+                    Warning('Synpase {} found to have more than 1 copy, removing all.')
+                    objs = self._find('Synpase', data_source, uname = synapse_name).nodes_as_objs
+                    synapse_objs.extend(objs)
+                except:
+                    raise
+            else:
+                raise TypeError('Parameter synapse must be either a str or a Synapse or InferredSynapse object.')
+        q = QueryWrapper.from_objs(self.graph, synapse_objs)
+        data = get_data(q)
+        any_thing_owned = q.gen_traversal_out(['Owns'], min_depth = 1)
+        rids_to_delete = set(
+            q.node_rids+data.node_rids+any_thing_owned.node_rids
+            )
+        self.remove_by_rids(rids_to_delete)
+
+    def remove_Synapses_between(self, pre_neurons, post_neurons, data_source = None):
+        """
+        Remove synapses between a list of presynaptic neurons and
+        a list of postsynaptic neurons.
+        """
+        self._database_writeable_check()
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
+
+        if not isinstance(pre_neurons, list):
+            pre_neurons = [self._get_obj_from_str(pre_neurons)]
+        else:
+            pre_neurons = [self._get_obj_from_str(neuron) for neuron in pre_neurons]
+        if not isinstance(post_neurons, list):
+            post_neurons = [self._get_obj_from_str(post_neurons)]
+        else:
+            post_neurons = [self._get_obj_from_str(neuron) for neuron in post_neurons]
+
+        pre_neurons_objs = []
+        post_neurons_objs = []
+        for neuron in pre_neurons:
+            if isinstance(neuron, models.Neuron):
+                pre_neuron_objs.append(neuron)
+            elif isinstance(neuron, str):
+                pre_neuron_objs.append(self.get('Neuron', neuron, connect_DataSource))
+            else:
+                raise TypeError('Parameter neuron must be either a str or a Neuron object.')
+        for neuron in post_neurons:
+            if isinstance(neuron, models.Neuron):
+                post_neuron_objs.append(neuron)
+            elif isinstance(neuron, str):
+                post_neuron_objs.append(self.get('Neuron', neuron, connect_DataSource))
+            else:
+                raise TypeError('Parameter neuron must be either a str or a Neuron object.')
+
+        pre_q = QueryWrapper.from_objs(self.graph, pre_objs)
+        post_q = QueryWrapper.from_objs(self.graph, post_neuron_objs)
+        synapses = outgoing_synapses(pre_q) & incoming_synapses(post_q)
+        self.remove_synapses(synapses.nodes_as_objs, safe = False)
 
     def remove_Neuropil(self):
         pass
 
-    def update_Neuron(self):
-        pass
+    def update_Neuron(self, neuron,
+                      uname = None,
+                      name = None,
+                      referenceId = None,
+                      locality = None,
+                      synonyms = None,
+                      info = None,
+                      morphology = None,
+                      arborization = None,
+                      neurotransmitters = None,
+                      neurotransmitters_datasources = None,
+                      data_source = None,
+                      safe = True):
+        """
+        Parameters
+        ----------
+        neuron : str or models.Neuron
+            The neuron to be updated, speicified either by
+            a mdoels.Neuron object, a str for its uname or a str
+            starts with '#' as the rid of OrientDB record ID.
+        uname : str
+            A unqiue name assigned to the neuron, must be unique within the DataSource
+        name : str
+            Name of the neuron, typically the cell type.
+        referenceId : str (optional)
+            Unique identifier in the original data source
+        locality : bool (optional)
+            Whether or not the neuron is a local neuron
+        synonyms : list of str (optional)
+            Synonyms of the neuron
+        info : dict (optional)
+            Additional information about the neuron, values must be str
+        morphology : list of dict (optional)
+            Each dict in the list defines a type of morphology of the neuron.
+            Must be loaded from a file.
+            The dict must include the following key to indicate the type of morphology:
+                {'type': 'swc'/'obj'/...}
+            Additional keys must be provides, either 'filename' with value
+            indicating the file to be read for the morphology,
+            or a full definition of the morphology according the schema.
+            For swc, required fields are ['sample', 'identifier', 'x', 'y, 'z', 'r', 'parent'].
+            More formats pending implementation.
+        arborization : list of dict (optional)
+            A list of dictionaries define the arborization pattern of
+            the neuron in neuropils, subregions, and tracts, if applicable, with
+            {'type': 'neuropil' or 'subregion' or 'tract',
+             'dendrites': {'EB': 20, 'FB': 2},
+             'axons': {'NO': 10, 'MB': 22}}
+            Name of the regions must already be present in the database.
+        neurotransmitters : str or list of str (optional)
+            The neurotransmitter(s) expressed by the neuron
+        neurotransmitters_datasources : neuroarch.models.DataSource or list of neuroarch.models.DataSource (optional)
+            The datasource of neurotransmitter data.
+            If None, all neurotransmitter will have the same datasource of the Neuron.
+            If specified, the size of the list must be the same as the size of
+            neurotransmitters, and have one to one corresponsdence in the same order.
+        data_source : neuroarch.models.DataSource (optional)
+            The datasource. If not specified, default DataSource will be used.
+        safe : bool (optional)
+            If safe is True, will check every item in the neurons list
+            if it is owned by the data_source. Otherwise, if models.Neuron is
+            provided, will not check.
 
-    def update_Synapse(self):
-        pass
+        """
+        self._database_writeable_check()
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
+
+        neuron = self._get_obj_from_str(neuron)
+        if isinstance(neuron, models.Neuron):
+            neuron_to_update = neuron
+            if safe:
+                if not self._is_in_datasource(connect_DataSource, neuron):
+                    raise DataSourceError(
+                        'The neuron specified {} is not owned by the DataSource {}'.format(
+                            neuron.uname, connect_DataSource.name))
+        elif isinstance(neuron, str):
+            neuron_name = neuron
+            neuron_to_update = self.get('Neuron', neuron_name, connect_DataSource)
+        else:
+            raise TypeError('Parameter neuron must be either a str or a Neuron object.')
+
+        update_chain = False
+        neuron_info = copy.deepcopy(neuron_to_update.get_props())
+        if isinstance(uname, str):
+            if uname != neuron_to_update.uname:
+                self._uniqueness_check('Neuron', unique_in = connect_DataSource,
+                                       name = uname)
+                update_chain = True
+                neuron_info['uname'] = uname
+        elif uname is not None:
+            raise TypeError('uname must be of str type')
+
+        if isinstance(name, str):
+            if name != neuron_to_update.name:
+                update_chain = True
+                neuron_info['name'] = name
+        elif name is not None:
+            raise TypeError('name must be of str type')
+
+        if isinstance(referenceId, str):
+            neuron_info['referenceId'] = referenceId
+        else:
+            if referenceId is not None:
+                raise TypeError('referenceId must be of str type')
+        if isinstance(locality, bool):
+            neuron_info['locality'] = locality
+        else:
+            if locality is not None:
+                raise TypeError('locality must be of bool type')
+        if isinstance(synonyms, list) and all(isinstance(a, str) for a in synonyms):
+            neuron_info['synonyms'] = synonyms
+        else:
+            if synonyms is not None:
+                raise TypeError('synonyms must be a list of str')
+        if isinstance(info, dict) and all(isinstance(v, str) for v in info.values()):
+            neuron_info['info'] = info
+        else:
+            if info is not None:
+                raise TypeError('info must be a dict with str values')
+
+        neuron_to_update.update(**neuron_info)
+
+        q_neuron = QueryWrapper.from_objs(self.graph, neuron_to_update)
+
+        if arborization is not None:
+            arborization_data = get_data(q_neuron, data_types = 'ArborizationData')
+            if len(arborization_data):
+                self.remove_by_rids(arborization_data.rids)
+            self.add_neuron_arborization(neuron_to_update, arborization, data_source = connect_DataSource)
+        else:
+            if update_chain:
+                arborization_data = get_data(q_neuron, data_types = 'ArborizationData')
+                if len(arborization_data):
+                    node = arborization_data.nodes_as_objs[0]
+                    props = node.get_props()
+                    update_props = {}
+                    if 'name' in props:
+                        update_props['name'] = neuron_props['name']
+                    if 'uname' in props:
+                        update_props['uname'] = neuron_props['uname']
+                    node.update(**update_props)
+
+        if neurotransmitters is not None:
+            neurotransmitter_data = get_data(q_neuron, data_types = 'NeurotransmitterData')
+            if len(neurotransmitter_data):
+                self.remove_by_rids(neurotransmitter_data.rids)
+            self.add_neurotransmitter(neuron_to_update, neurotramistters, data_source = neurotransmitters_datasources if neurotransmitters_datasources is not None else data_source)
+        else:
+            if update_chain:
+                neurotransmitter_data = get_data(q_neuron, data_types = 'NeurotransmitterData')
+                for node in neurotransmitter_data.nodes_as_objs:
+                    props = node.get_props()
+                    update_props = {}
+                    if 'name' in props:
+                        update_props['name'] = neuron_props['name']
+                    if 'uname' in props:
+                        update_props['uname'] = neuron_props['uname']
+                    node.update(**update_props)
+
+        if morphology is not None:
+            if not isinstance(morphology, list):
+                morphology = [morphology]
+            morphology_types_to_update = [m['type'] for m in morphology]
+            morphology_data = get_data(q_neuron, data_types = 'MorphologyData')
+            if len(morphology_data):
+                nodes_to_remove = [m._id for m in morphology_data.nodes_as_objs if m.type in morphology_types_to_update]
+                self.remove_by_rids(nodes_to_remove)
+            self.add_morphology(neuron_to_update, morphology, data_source = data_source)
+        else:
+            if update_chain:
+                morphology_data = get_data(q_neuron, data_types = 'MorphologyData')
+                for node in morphology_data.nodes_as_objs:
+                    props = node.get_props()
+                    update_props = {}
+                    if 'name' in props:
+                        update_props['name'] = neuron_props['name']
+                    if 'uname' in props:
+                        update_props['uname'] = neuron_props['uname']
+                    node.update(**update_props)
+        if not update_chain:
+            return True
+
+        pre_synapses = incoming_synapses(q_neuron).nodes_as_objs
+        for node in tqdm(pre_synapses):
+            props = node.get_props()
+            update_props = {}
+            if 'name' in props:
+                pre, post = props['name'].split('--')
+                synapse_name = '{}--{}'.format(pre, neuron_props['name'])
+                update_props['name'] = synapse_name
+            if 'uname' in props:
+                pre, post = props['uname'].split('--')
+                synapse_uname = '{}--{}'.format(pre, neuron_props['uname'])
+                update_props['uname'] = synapse_uname
+            node.update(**update_props)
+            data_nodes = node.out('HasData')
+            for node1 in data_nodes:
+                props = node1.get_props()
+                update_props = {}
+                if 'name' in props:
+                    update_props['name'] = synapse_name
+                if 'uname' in props:
+                    update_props['uname'] = synapse_uname
+                node1.update(**update_props)
+
+        post_synapses = outgoing_synapses(q_neuron).nodes_as_objs
+        for node in tqdm(post_synapses):
+            props = node.get_props()
+            update_props = {}
+            if 'name' in props:
+                pre, post = props['name'].split('--')
+                synapse_name = '{}--{}'.format(neuron_props['name'], post)
+                update_props['name'] = synapse_name
+            if 'uname' in props:
+                pre, post = props['uname'].split('--')
+                synapse_uname = '{}--{}'.format(neuron_props['uname'], post)
+                update_props['uname'] = synapse_uname
+            node.update(**update_props)
+            data_nodes = node.out('HasData')
+            for node1 in data_nodes:
+                props = node1.get_props()
+                update_props = {}
+                if 'name' in props:
+                    update_props['name'] = synapse_name
+                if 'uname' in props:
+                    update_props['uname'] = synapse_uname
+                node1.update(**update_props)
+        return True
+
+    def update_Synapse(self, synapse,
+                       N = None, NHP = None,
+                       morphology = None,
+                       arborization = None,
+                       data_source = None):
+        self._database_writeable_check()
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
+
+        synapse = self._get_obj_from_str(synapse)
+        if isinstance(synapse, [models.Synapse, models.InferredSynapse]):
+            synapse_to_update = synapse
+            if safe:
+                if not self._is_in_datasource(connect_DataSource, synapse):
+                    raise DataSourceError(
+                        'The synapse specified {} is not owned by the DataSource {}'.format(
+                            synapse.uname, connect_DataSource.name))
+        elif isinstance(synapse, str):
+            synapse_name = synapse
+            try:
+                synapse_to_update = self.get('Synapse', synapse_name, connect_DataSource)
+            except RecordNotFoundError:
+                synapse_to_update = self.get('InferredSynapse', synapse_name, connect_DataSource)
+        else:
+            raise TypeError('Parameter synapse must be either a str or a Synapse object.')
+
+        synapse_info = copy.deepcopy(synapse_to_update.get_props())
+        if isinstance(N, int):
+            synapse_info['N'] = N
+        elif N is not None:
+            raise TypeError('N must be of integer type.')
+
+        if isinstance(NHP, int):
+            if NHP > synapse_info["N"]:
+                raise ValueError('NHP cannot be greater than N')
+            synapse_info['NHP'] = NHP
+        elif NHP is not None:
+            raise TypeError('NHP must be of integer type.')
+
+        synapse_to_update.update(**synapse_info)
+
+        q_synapse = QueryWrapper.from_objs(self.graph, synapse_to_update)
+
+        if arborization is not None:
+            arborization_data = get_data(q_synapse, data_types = 'ArborizationData')
+            if len(arborization_data):
+                self.remove_by_rids(arborization_data.rids)
+            self.add_synapse_arborization(synapse_to_update, arborization, data_source = data_source)
+
+        if morphology is not None:
+            if not isinstance(morphology, list):
+                morphology = [morphology]
+            morphology_types_to_update = [m['type'] for m in morphology]
+            morphology_data = get_data(q_synapse, data_types = 'MorphologyData')
+            if len(morphology_data):
+                nodes_to_remove = [m._id for m in morphology_data.nodes_as_objs if m.type in morphology_types_to_update]
+                self.remove_by_rids(nodes_to_remove)
+            self.add_morphology(synapse_to_update, morphology, data_source = data_source)
+        return True
 
     def update_Neuropil(self):
         pass
+
+    def remove_by_rids(self, rids):
+        self._database_writeable_check()
+        self.graph.client.command("""delete vertex []""".format(
+                                        ','.join(rids)))
 
     def export_tags(self, filename):
         all_tags = self.sql_query("""select from QueryResult""").nodes_as_objs
@@ -1898,129 +2450,221 @@ class NeuroArch(object):
             raise RuntimeError("tag {} cannot be removed cleanly".format(tag_name))
         return True
 
+    def available_DataSources(self):
+        return {n._id: n.get_props() for n in self.find_objs('DataSource')}
 
-def update_neuron(graph, neuron, **kwargs):
+    def create_model_from_circuit(self, model_name, model_version, graph, circuit_diagram = circuit_diagram):
+        if isinstance(graph, nx.DiGraph):
+            g = graph
+        elif isinstance(graph, dict) and 'nodes' in graph and 'edges' in graph:
+            g = nx.MultiDiGraph()
+            g.add_nodes_from(list(graph['nodes']))
+            g.add_edges_from(edges)
+
+        neuron_nodes = [rid for rid, v in g.nodes(data=True) if issubclass(getattr(models, v['class']), models.Neuron)]
+        synapse_nodes = [rid for rid, v in g.nodes(data=True) if issubclass(getattr(models, v['class']), models.Synapse)]
+        neurons =  QueryWrapper.from_rids(self.graph, *neuron_nodes)
+        synapses =  QueryWrapper.from_rids(self.graph, *synapse_nodes)
+        neuropils = neurons.owned_by(cls = 'Neuropil')
+
+        # create LPU
+        circuit_model_obj = self.add_ExecutableCircuit(model_name, version = model_version,
+                                                       circuit_diagram = circuit_diagram)
+
+        lpus = {}
+        for neuropil in neuropils.nodes_as_objs:
+            lpus[neuropil._id] = self.create_LPU(neuropil, version = model_version)
+
+        neuron_models = {}
+        for neuron in neuron_nodes.nodes_as_objs:
+            model = [pre for pre, post, v in g.in_edges(neuron._id, data = True) if v['class'] == 'Models'][0]
+            params = g.nodes[model]
+            cls = params.pop('class')
+            neuropil = QueryWrapper.from_rids(self.graph, neuron._id).owned_by(cls = 'Neuropil').nodes_as_objs[0]
+            neuron_models[neuron._id] = self.create_NeuronModel(neuron, cls, lpu = lpus[neuropil._id], **params)
+
+
+        synapse_models = {}
+        for synapse in synapse_nodes.nodes_as_objs:
+            model = [pre for pre, post, v in g.in_edges(synapse._id, data = True) if v['class'] == 'Models'][0]
+            params = g.nodes[model]
+            cls = params.pop('class')
+            synapse_models[synapse._id] = self.create_SynapseModel(pre_neuron, post_neuron, synapse, cls, **params)
+            neuropil = QueryWrapper.from_rids(self.graph, synapse._id).owned_by(cls = 'Neuropil').nodes_as_objs[0]
+            link(lpus[neuropil._id], synapse_models[synapse._id], 'Owns')
+
+
+        for neuron_
+
+
+    def add_ExecutableCircuit(self, name, version = None, circuit_diagram = None):
+        """
+        Add an executable circuit
+        """
+        self._database_writeable_check()
+        assert isinstance(name, str), 'name must be a str'
+        circuit_info = {'name': name}
+        if version is not None:
+            if isinstance(version, str):
+                circuit_info['version'] = version
+            else:
+                raise TypeError('version must be a str')
+
+        obj = self.graph.ExecutableCircuits.create(**circuit_info)
+        if circuit_diagram is not None:
+            diagram_obj = self.add_CircuitDiagram(name, circuit_diagram, version = version)
+            self.link(obj, diagram_obj, 'HasData')
+        return obj
+
+    def add_CircuitDiagram(self, name, diagram, version = None):
+        self._database_writeable_check()
+        assert isinstance(name, str), 'name must be a str'
+        assert isinstance(diagram, str), 'name must be a str'
+        circuit_info = {'name': name, 'diagram': diagram}
+        if version is not None:
+            if isinstance(version, str):
+                circuit_info['version'] = version
+            else:
+                raise TypeError('version must be a str')
+
+        obj = self.graph.CircuitDiagrams.create(**circuit_info)
+        return obj
+
+    def add_LPU(self, neuropil, version = None):
+        self._database_writeable_check()
+        neuropil = self._get_obj_from_str(neuropil)
+        if not isinstance(neuropil, models.Neuropil):
+            raise TypeError('neuropil must be a models.Neuropil instance or its rid')
+
+        lpu_info = {'name': neuropil.name}
+        if version is not None:
+            if isinstance(version, str):
+                lpu_info['version'] = version
+            else:
+                raise TypeError('version must be a str')
+
+        lpu_obj = self.graph.LPUs.create(**lpu_info)
+        link(lpu_obj, neuropil, 'Models')
+        return lpu_obj
+
+    def add_Pattern(self, tract, version = None):
+        pass
+
+    def add_NeuronModel(self, neuron, model_cls, lpu = None, **params):
+        if lpu is not None:
+            lpu = self._get_obj_from_str(lpu)
+            if isinstance(lpu, models.LPU):
+                link(lpus[neuropil._id], neuron_models[neuron._id], 'Owns')
+            else:
+                raise TypeError('lpu must be of models.LPU instance')
+
+        port_obj = self.add_Port()
+        link(neuron_model_obj, port_obj)
+
+    def add_SynapseModel(self, synapse, model_cls, pre_neuron_model = None, post_neuron_model = None, lpu = None, **params):
+        # make sure the the link from post to synapse is also added for synapses like NMDA
+        pass
+
+
+def outgoing_synapses(q, N = None, rel='>',include_inferred=True):
     """
+    Get all the outgoing synapses from neurons in a QueryWrapper object.
+
     Parameters
     ----------
-    graph: pyorient.ogm.graph
-           Connected database object.
-    neuron: models.Neuron or dict
-            The neuron to be updated.
-            If dict, must be either {'rid': ...} or {'uname': ...}.
-    kwargs: fields to be updated.
+    q: neuroarch.query.QueryWrapper
+        The query to search for outgoing synapses
+    N: int or None
+        Filter for number of synapses (default: None, equivalent to 0)
+    rel: str
+        Ralation operator to the number of synapses when applying the filter.
+        (default: '>')
+    include_inferred: bool
+        Whether to include InferredSynapses (default: True)
 
-    Return
-    ------
-    update_succ: bool
-                 Indicate if update was successful.
+    Returns
+    -------
+    neuroarch.query.QueryWrapper: containing the outgoing synapses.
+
+    Example
+    -------
+    db = NeuroArch('hemibrain')
+    neurons = db.sql_query("select from Neuron where name like 'EPG' ")
+    q = outgoing_synapses(neurons)
+    q.nodes_as_objs
     """
-    if not isinstance(neuron, models.Neuron):
-        if 'rid' in neuron:
-            q = QueryWrapper.from_rids(graph, neuron['rid'])
-            if len(q.nodes):
-                neuron_to_update = q.nodes_as_objs[0]
-            if not isinstance(neuron_to_update, models.Neuron):
-                print('Error: node with rid {} not a Neuron node'.format(neuron['rid']))
-                return False
-        elif 'uname' in neuron:
-            neuron_to_update = graph.Neurons.query(uname = neuron['uname']).all()
-            if len(neuron_to_update) == 0:
-                print('Error: No neuron with uname {} in DB'.format(neuron['uname']))
-                return False
-            elif len(neuron_to_update) > 1:
-                print('Error: More than 1 neuron with uname {} in DB'.format(neuron['uname']))
-                return False
-            neuron_to_update = neuron_to_update[0]
-        else:
-            print('Error: No current criteria to find name')
-            return False
+    synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
+    if N:
+        return q.gen_traversal_out(['SendsTo', synapse_classes, {'N':(rel,N)}], min_depth=1)
     else:
-        neuron_to_update = neuron
+        return q.gen_traversal_out(['SendsTo', synapse_classes], min_depth=1)
 
-    # check if other records need to be updated
-    update_chain = False
-    if 'uname' in kwargs:
-        uname = kwargs['uname']
-        # make sure there is no other Neuron node with the uname to be updated
-        existing_neuron = graph.Neurons.query(uname = uname).all()
-        if len(existing_neuron):
-            print('Error: Neuron with uname: already exist in DB'.format(uname))
-            return False
-        update_chain = True
 
-    if 'name' in kwargs:
-        update_chain = True
+def incoming_synapses(q, N=None, rel='>',include_inferred=True):
+    """
+    Get all the input synapses to neurons in a QueryWrapper object.
 
-    # copy original props and update neuron props
-    neuron_props = copy.deepcopy(neuron_to_update.get_props())
-    for k, v in kwargs.items():
-        neuron_props[k] = v
-    neuron_to_update.update(**neuron_props)
+    Parameters
+    ----------
+    q: neuroarch.query.QueryWrapper
+        The query to search for outgoing synapses
+    N: int or None
+        Filter for number of synapses (default: None, equivalent to 0)
+    rel: str
+        Ralation operator to the number of synapses when applying the filter.
+        (default: '>')
+    include_inferred: bool
+        Whether to include InferredSynapses (default: True)
 
-    # find all related records to update
-    if not update_chain:
-        return True
+    Returns
+    -------
+    neuroarch.query.QueryWrapper: containing the input synapses.
 
-    post_syn_nodes = [n for n in neuron_to_update.out('SendsTo') \
-                      if isinstance(n, (models.Synapse, models.InferredSynapse))]
-    for node in tqdm(post_syn_nodes):
-        props = node.get_props()
-        update_props = {}
-        if 'name' in props:
-            pre, post = props['name'].split('--')
-            synapse_name = '{}--{}'.format(neuron_props['name'], post)
-            update_props['name'] = synapse_name
-        if 'uname' in props:
-            pre, post = props['uname'].split('--')
-            synapse_uname = '{}--{}'.format(neuron_props['uname'], post)
-            update_props['uname'] = synapse_uname
-        node.update(**update_props)
-        data_nodes = node.out('HasData')
-        for node1 in data_nodes:
-            props = node1.get_props()
-            update_props = {}
-            if 'name' in props:
-                update_props['name'] = synapse_name
-            if 'uname' in props:
-                update_props['uname'] = synapse_uname
-            node1.update(**update_props)
+    Example
+    -------
+    db = NeuroArch('hemibrain')
+    neurons = db.sql_query("select from Neuron where name like 'EPG' ")
+    q = incoming_synapses(neurons)
+    q.nodes_as_objs
+    """
+    synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
+    if N:
+        return q.gen_traversal_in(['SendsTo', synapse_classes, {'N':(rel,N)}], min_depth=1)
+    else:
+        return q.gen_traversal_in(['SendsTo', synapse_classes], min_depth=1)
 
-    pre_syn_nodes = [n for n in neuron_to_update.in_('SendsTo') \
-                     if isinstance(n, (models.Synapse, models.InferredSynapse))]
-    for node in tqdm(pre_syn_nodes):
-        props = node.get_props()
-        update_props = {}
-        if 'name' in props:
-            pre, post = props['name'].split('--')
-            synapse_name = '{}--{}'.format(pre, neuron_props['name'])
-            update_props['name'] = synapse_name
-        if 'uname' in props:
-            pre, post = props['uname'].split('--')
-            synapse_uname = '{}--{}'.format(pre, neuron_props['uname'])
-            update_props['uname'] = synapse_uname
-        node.update(**update_props)
-        data_nodes = node.out('HasData')
-        for node1 in data_nodes:
-            props = node1.get_props()
-            update_props = {}
-            if 'name' in props:
-                update_props['name'] = synapse_name
-            if 'uname' in props:
-                update_props['uname'] = synapse_uname
-            node1.update(**update_props)
+def get_data(q, data_types = None):
+    """
+    Get all the data associated with a QueryWrapper object.
 
-    data_nodes = neuron_to_update.out('HasData')
-    for node in data_nodes:
-        props = node.get_props()
-        update_props = {}
-        if 'name' in props:
-            update_props['name'] = neuron_props['name']
-        if 'uname' in props:
-            update_props['uname'] = neuron_props['uname']
-        node.update(**update_props)
-    return True
+    Parameters
+    ----------
+    q: neuroarch.query.QueryWrapper
+        The query to search for outgoing synapses
+    data_types: list or None
+        The types of data to be retrieved (default: None, equivalent to all data types)
 
+    Returns
+    -------
+    neuroarch.query.QueryWrapper: containing the data.
+
+    Example
+    -------
+    db = NeuroArch('hemibrain')
+    neurons = db.sql_query("select from Neuron where name like 'EPG' ")
+    q = get_data(neurons, 'MorphologyData')
+    q.nodes_as_objs
+    """
+    if data_types is None or len(data_types) == 0:
+        data = q.gen_travesal_out(['HasData'], min_depth=1)
+    else:
+        if not isinstance(data_types, list):
+            data_types = [data_types]
+        for data_type in data_types:
+            if data_type not in models.Data_Types:
+                raise('Data type not understood: {}'.format(data_type))
+        data = q.gen_traversal_out(['HasData', data_types], min_depth = 1)
+    return data
 
 def load_swc(file_name):
     """
