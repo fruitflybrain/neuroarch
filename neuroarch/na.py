@@ -41,7 +41,7 @@ def connect(host, db_name, port = 2424, user = 'admin', password = 'admin',
             new_models = False):
     # graph = Graph(Config.from_url(url, user, password, initial_drop))
 
-    graph = Graph(Config('localhost', port, user, password, db_name,
+    graph = Graph(Config(host, port, user, password, db_name,
                          'plocal', initial_drop = initial_drop,
                          serialization_type = serialization_type))
     if initial_drop or new_models:
