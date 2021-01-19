@@ -289,13 +289,18 @@ class Version(DesignNode):
     version = String(nullable=False, unique=False, indexed=True)
 
 class ExecutableCircuit(DesignNode):
+    element_type = 'ExecutableCircuit'
+    element_plural = 'ExecutableCircuits'
     name = String(nullable=False, unique=False, indexed=True)
     version = String(nullable=True, unique=False, indexed=True)
 
 class CircuitDiagram(DesignNode):
+    element_type = 'CircuitDiagram'
+    element_plural = 'CircuitDiagrams'
     name = String(nullable=False, unique=False, indexed=True)
     version = String(nullable=True, unique=False, indexed=True)
     diagram = String(nullable=False, unique=False, indexed=False)
+    js = String(nullable=False, unique=False, indexed=False)
 
 class LPU(DesignNode):
     element_type = 'LPU'
@@ -317,9 +322,9 @@ class Pattern(DesignNode):
 class Port(DesignNode):
     element_type = 'Port'
     element_plural = 'Ports'
-    selector = String(nullable=False, unique=False, indexed=True)
-    port_type = String(nullable=False, unique=False)
-    port_io = String(nullable=False, unique=False)
+    selector = String(nullable=True, unique=False, indexed=True)
+    port_type = String(nullable=True, unique=False)
+    port_io = String(nullable=True, unique=False)
 
 class CircuitModel(DesignNode):
     element_type = 'CircuitModel'
@@ -350,26 +355,31 @@ class NeuronModel(DesignNode):
     element_type = 'NeuronModel'
     element_plural = 'NeuronModels'
     name = String(nullable=False, unique=False, indexed=True)
+    uname = String(nullable=True, unique=False, indexed=True)
+    params = EmbeddedMap(nullable=True, unique=False, indexed=True)
+    states = EmbeddedMap(nullable=True, unique=False, indexed=True)
 
-class MembraneModel(DesignNode):
+class MembraneModel(NeuronModel):
     element_type = 'MembraneModel'
     element_plural = 'MembraneModels'
-    name = String(nullable=False, unique=False, indexed=True)
 
-class AxonHillockModel(DesignNode):
+class AxonHillockModel(NeuronModel):
     element_type = 'AxonHillockModel'
     element_plural = 'AxonHillockModels'
-    name = String(nullable=False, unique=False, indexed=True)
 
 class DendriteModel(DesignNode):
     element_type = 'DendriteModel'
     element_plural = 'DendriteModels'
     name = String(nullable=False, unique=False, indexed=True)
+    uname = String(nullable=True, unique=False, indexed=True)
+    params = EmbeddedMap(nullable=True, unique=False, indexed=True)
+    states = EmbeddedMap(nullable=True, unique=False, indexed=True)
 
 class PhotoreceptorModel(MembraneModel):
     element_type = 'PhotoreceptorModel'
     element_plural = 'PhotoreceptorModels'
-    #name = String(nullable=False, unique=False, indexed=True)
+    spiking = False
+    # num_microvilli = Integer(nullable=True, unique=False, indexed=True)
 
 # Added for AdaptiveNarx
 class NarxAdaptive(MembraneModel):
@@ -380,62 +390,139 @@ class NarxAdaptive(MembraneModel):
 class MorrisLecar(MembraneModel):
     element_type = 'MorrisLecar'
     element_plural = 'MorrisLecars'
-    #name = String(nullable=False, unique=False, indexed=True)
+    spiking = False
+    # V1 = Double(nullable=True, unique=False, indexed=True)
+    # V2 = Double(nullable=True, unique=False, indexed=True)
+    # V3 = Double(nullable=True, unique=False, indexed=True)
+    # V4 = Double(nullable=True, unique=False, indexed=True)
+    # phi = Double(nullable=True, unique=False, indexed=True)
+    # offset = Double(nullable=True, unique=False, indexed=True)
+    # V_L = Double(nullable=True, unique=False, indexed=True)
+    # V_Ca = Double(nullable=True, unique=False, indexed=True)
+    # V_K = Double(nullable=True, unique=False, indexed=True)
+    # g_L = Double(nullable=True, unique=False, indexed=True)
+    # g_Ca = Double(nullable=True, unique=False, indexed=True)
+    # g_K = Double(nullable=True, unique=False, indexed=True)
+    # initV = Double(nullable=True, unique=False, indexed=True)
+    # initn = Double(nullable=True, unique=False, indexed=True)
+
+class HodgkinHuxley(AxonHillockModel):
+    element_type = 'HodgkinHuxley'
+    element_plural = 'HodgkinHuxleys'
+    spiking = True
+    # initV = Double(nullable=True, unique=False, indexed=True)
+    # initn =  Double(nullable=True, unique=False, indexed=True)
+    # initm = Double(nullable=True, unique=False, indexed=True)
+    # inith = Double(nullable=True, unique=False, indexed=True)
+    # g_K = Double(nullable=True, unique=False, indexed=True)
+    # g_Na = Double(nullable=True, unique=False, indexed=True)
+    # g_l =  Double(nullable=True, unique=False, indexed=True)
+
+class HodgkinHuxleyFull(AxonHillockModel):
+    element_type = 'HodgkinHuxleyFull'
+    element_plural = 'HodgkinHuxleyFulls'
+    spiking = True
+    # initV = Double(nullable=True, unique=False, indexed=True)
+    # initn =  Double(nullable=True, unique=False, indexed=True)
+    # initm = Double(nullable=True, unique=False, indexed=True)
+    # inith = Double(nullable=True, unique=False, indexed=True)
+    # g_K = Double(nullable=True, unique=False, indexed=True)
+    # g_Na = Double(nullable=True, unique=False, indexed=True)
+    # g_L =  Double(nullable=True, unique=False, indexed=True)
+    # E_K =Double(nullable=True, unique=False, indexed=True)
+    # E_Na = Double(nullable=True, unique=False, indexed=True)
+    # E_L = Double(nullable=True, unique=False, indexed=True)
 
 class LeakyIAF(AxonHillockModel):
     element_type = 'LeakyIAF'
     element_plural = 'LeakyIAFs'
-    #name = String(nullable=False, unique=False, indexed=True)
+    spiking = True
+    # initV = Double(nullable=True, unique=False, indexed=True)
+    # threshold = Double(nullable=True, unique=False, indexed=True)
+    # reset_potential = Double(nullable=True, unique=False, indexed=True)
+    # capacitance = Double(nullable=True, unique=False, indexed=True)
+    # resting_potential = Double(nullable=True, unique=False, indexed=True)
+    # resistance = Double(nullable=True, unique=False, indexed=True)
 
 class LeakyIAFwithRefractoryPeriod(AxonHillockModel):
     element_type = 'LeakyIAFwithRefractoryPeriod'
     element_plural = 'LeakyIAFwithRefractoryPeriods'
-    #name = String(nullable=False, unique=False, indexed=True)
+    spiking = True
+    # initV = Double(nullable=True, unique=False, indexed=True)
+    # threshold = Double(nullable=True, unique=False, indexed=True)
+    # reset_potential = Double(nullable=True, unique=False, indexed=True)
+    # capacitance = Double(nullable=True, unique=False, indexed=True)
+    # resting_potential = Double(nullable=True, unique=False, indexed=True)
+    # time_constant = Double(nullable=True, unique=False, indexed=True)
+    # refractory_period = Double(nullable=True, unique=False, indexed=True)
+    # bias_current = Double(nullable=True, unique=False, indexed=True)
 
 class BufferVoltage(MembraneModel):
     element_type = 'BufferVoltage'
     element_plural = 'BufferVoltages'
-    #name = String(nullable=False, unique=False, indexed=True)
 
 class BufferPhoton(MembraneModel):
     element_type = 'BufferPhoton'
     element_plural = 'Bufferphotons'
-    #name = String(nullable=False, unique=False, indexed=True)
 
 class Aggregator(DendriteModel):
     element_type = 'Aggregator'
     element_plural = 'Aggregators'
-    #name = String(nullable=False, unique=False, indexed=True)
 
 class SynapseModel(DesignNode):
     element_type = 'SynapseModel'
     element_plural = 'SynapseModels'
-    #name = String(nullable=False, unique=False, indexed=True)
+    name = String(nullable=False, unique=False, indexed=True)
+    uname = String(nullable=True, unique=False, indexed=True)
+    params = EmbeddedMap(nullable=True, unique=False, indexed=True)
+    states = EmbeddedMap(nullable=True, unique=False, indexed=True)
+    # reverse = Double(nullable=True, unique=False, indexed=True)
+    # gmax = Double(nullable=True, unique=False, indexed=True)
 
 class AlphaSynapse(SynapseModel):
     element_type = 'AlphaSynapse'
     element_plural = 'AlphaSynapses'
-    #name = String(nullable=False, unique=False, indexed=True)
+    link_pre = 'spike_state'
+    link_post = None
+    # ar = Double(nullable=True, unique=False, indexed=True)
+    # ad = Double(nullable=True, unique=False, indexed=True)
 
 class PowerGPotGPot(SynapseModel):
     element_type = 'PowerGPotGPot'
     element_plural = 'PowerGPotGPots'
-    #name = String(nullable=False, unique=False, indexed=True)
+    link_pre = 'gpot'
+    link_post = None
 
 class SynapseAMPA(SynapseModel):
     element_type = 'SynapseAMPA'
     element_plural = 'SynapseAMPAs'
-    #name = String(nullable=False, unique=False, indexed=True)
+    link_pre = 'spike_state'
+    link_post = None
+    # st = Double(nullable=True, unique=False, indexed=True)
 
 class SynapseGABA(SynapseModel):
     element_type = 'SynapseGABA'
     element_plural = 'SynapseGABAs'
-    #name = String(nullable=False, unique=False, indexed=True)
+    link_pre = 'spike_state'
+    link_post = None
+    # st = Double(nullable=True, unique=False, indexed=True)
 
 class SynapseNMDA(SynapseModel):
     element_type = 'SynapseNMDA'
     element_plural = 'SynapseNMDAs'
-    #name = String(nullable=False, unique=False, indexed=True)
+    link_pre = 'spike_state'
+    link_post = 'V'
+    # st = Double(nullable=True, unique=False, indexed=True)
+    # Mg = Double(nullable=True, unique=False, indexed=True)
+
+class SigmoidSynapse(SynapseModel):
+    element_type = 'SigmoidSynapse'
+    element_plural = 'SigmoidSynapses'
+    link_pre = 'V'
+    link_post = None
+    # threshold = Double(nullable=True, unique=False, indexed=True)
+    # scale = Double(nullable=True, unique=False, indexed=True)
+    # slope = Double(nullable=True, unique=False, indexed=True)
 
 class Owns(Relationship):
     label = 'Owns'
@@ -468,7 +555,7 @@ class QueryOwns(Relationship):
 
 class Models(Relationship):
     label = 'Models'
-    version = String(nullable=False, unique=False, indexed=True)
+    version = String(nullable=True, unique=False, indexed=True)
 
 class HasQueryResults(Relationship):
     label = 'HasQueryResults'

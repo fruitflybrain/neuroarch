@@ -37,13 +37,14 @@ def replace_special_char(text):
 
 
 def connect(host, db_name, port = 2424, user = 'admin', password = 'admin',
-            initial_drop = False, serialization_type = OrientSerialization.CSV):
+            initial_drop = False, serialization_type = OrientSerialization.CSV,
+            new_models = False):
     # graph = Graph(Config.from_url(url, user, password, initial_drop))
 
     graph = Graph(Config('localhost', port, user, password, db_name,
                          'plocal', initial_drop = initial_drop,
                          serialization_type = serialization_type))
-    if initial_drop:
+    if initial_drop or new_models:
         graph.create_all(models.Node.registry)
         graph.create_all(models.Relationship.registry)
     else:
@@ -128,7 +129,7 @@ def _to_var_name(s):
 class NeuroArch(object):
     def __init__(self, db_name, host = 'localhost', port = 2424,
                  user = 'root', password = 'root', mode = 'r',
-                 debug = False):
+                 new_models = False, debug = False):
         """
         Create or connect to a NeuroArch object for database access.
 
@@ -148,6 +149,8 @@ class NeuroArch(object):
             'r': read only
             'w': read/write on existing database, if does not exist, one is created.
             'o': read/write and overwrite any of the existing data in the database.
+        new_models: bool (optional)
+            If true, recreate the ogm classes.
         debug : bool (optional)
             Whether the queries are done in debug mode
         """
@@ -177,7 +180,8 @@ class NeuroArch(object):
         self.graph = connect(host, db_name, port = port,
                              user = user, password = password,
                              initial_drop = initial_drop,
-                             serialization_type = serialization_type)
+                             serialization_type = serialization_type,
+                             new_models = new_models)
         self._debug = debug
         self._default_DataSource = None
         # self._cache = {'DataSource': {},
@@ -1793,38 +1797,35 @@ class NeuroArch(object):
                                 for key, value in attr.items()])))
         return True
 
-    def create_LPU(self):
-        pass
-
-    def create_NeuronModel(self, neuron, model, name, circuit_model = None, **kwargs):
-        self._database_writeable_check()
-        neuron = self._get_obj_from_str(neuron)
-        assert isinstance(neuron, models.Neuron), \
-               'neuron must be either a Neuron object or its rid'
-        if circuit_model is not None:
-            self._uniqueness_check('NeuronModel', unique_in = circuit_model,
-                                   name = name)
-        model_cls = getattr(models, model)
-        assert issubclass(model_cls, models.NeuronModel), 'Model must be a str of NeuronModel class name'
-        model_obj = getattr(self.graph, model_cls.element_plural).create(name = name, **kwargs)
-        if circuit_model is not None:
-            self.link(model_obj, neuron, 'Models', version = circuit_model.name)
-        return model_obj
-
-    def create_SynapseModel(self, synapse, model, name, circuit_model = None, **kwags):
-        self._database_writeable_check()
-        synapse = self._get_obj_from_str(synapse)
-        assert isinstance(synapse, (models.Synapse, models.InferredSynapse)), \
-               'synapse must be either a Synapse object or its rid'
-        if circuit_model is not None:
-            self._uniqueness_check('SynapseModel', unique_in = circuit_model,
-                                   name = name)
-        model_cls = getattr(models, model)
-        assert issubclass(model_cls, models.SynapseModel), 'Model must be a str of SynapseModel class name'
-        model_obj = getattr(self.graph, model_cls.element_plural).create(name = name, **kwargs)
-        if circuit_model is not None:
-            self.link(model_obj, neuron, 'Models', version = circuit_model.name)
-        return model_obj
+    # def add_NeuronModel(self, neuron, model, name, circuit_model = None, **kwargs):
+    #     self._database_writeable_check()
+    #     neuron = self._get_obj_from_str(neuron)
+    #     assert isinstance(neuron, models.Neuron), \
+    #            'neuron must be either a Neuron object or its rid'
+    #     if circuit_model is not None:
+    #         self._uniqueness_check('NeuronModel', unique_in = circuit_model,
+    #                                name = name)
+    #     model_cls = getattr(models, model)
+    #     assert issubclass(model_cls, models.NeuronModel), 'Model must be a str of NeuronModel class name'
+    #     model_obj = getattr(self.graph, model_cls.element_plural).create(name = name, **kwargs)
+    #     if circuit_model is not None:
+    #         self.link(model_obj, neuron, 'Models', version = circuit_model.name)
+    #     return model_obj
+    #
+    # def add_SynapseModel(self, synapse, model, name, circuit_model = None, **kwags):
+    #     self._database_writeable_check()
+    #     synapse = self._get_obj_from_str(synapse)
+    #     assert isinstance(synapse, (models.Synapse, models.InferredSynapse)), \
+    #            'synapse must be either a Synapse object or its rid'
+    #     if circuit_model is not None:
+    #         self._uniqueness_check('SynapseModel', unique_in = circuit_model,
+    #                                name = name)
+    #     model_cls = getattr(models, model)
+    #     assert issubclass(model_cls, models.SynapseModel), 'Model must be a str of SynapseModel class name'
+    #     model_obj = getattr(self.graph, model_cls.element_plural).create(name = name, **kwargs)
+    #     if circuit_model is not None:
+    #         self.link(model_obj, neuron, 'Models', version = circuit_model.name)
+    #     return model_obj
 
     def remove_Neurons(self, neurons, data_source = None, safe = True):
         """
@@ -2453,13 +2454,15 @@ class NeuroArch(object):
     def available_DataSources(self):
         return {n._id: n.get_props() for n in self.find_objs('DataSource')}
 
-    def create_model_from_circuit(self, model_name, model_version, graph, circuit_diagram = circuit_diagram):
+    def create_model_from_circuit(self, model_name, model_version, graph,
+                                  circuit_diagram = None, js = None):
         if isinstance(graph, nx.DiGraph):
             g = graph
         elif isinstance(graph, dict) and 'nodes' in graph and 'edges' in graph:
             g = nx.MultiDiGraph()
-            g.add_nodes_from(list(graph['nodes']))
-            g.add_edges_from(edges)
+            g.add_nodes_from(graph['nodes'])
+            g.add_edges_from(graph['edges'])
+        print({rid: v for rid , v in g.nodes(data = True) if 'class' not in v})
 
         neuron_nodes = [rid for rid, v in g.nodes(data=True) if issubclass(getattr(models, v['class']), models.Neuron)]
         synapse_nodes = [rid for rid, v in g.nodes(data=True) if issubclass(getattr(models, v['class']), models.Synapse)]
@@ -2469,35 +2472,61 @@ class NeuroArch(object):
 
         # create LPU
         circuit_model_obj = self.add_ExecutableCircuit(model_name, version = model_version,
-                                                       circuit_diagram = circuit_diagram)
+                                                       circuit_diagram = circuit_diagram,
+                                                       js = js)
 
         lpus = {}
         for neuropil in neuropils.nodes_as_objs:
-            lpus[neuropil._id] = self.create_LPU(neuropil, version = model_version)
+            lpus[neuropil._id] = self.add_LPU(neuropil, circuit_model_obj, version = model_version)
 
         neuron_models = {}
-        for neuron in neuron_nodes.nodes_as_objs:
+        for neuron in neurons.nodes_as_objs:
             model = [pre for pre, post, v in g.in_edges(neuron._id, data = True) if v['class'] == 'Models'][0]
-            params = g.nodes[model]
+            params = copy.deepcopy(g.nodes[model])
             cls = params.pop('class')
+            for k in params['params']:
+                params['params'][k] = float(params['params'][k])
+            for k in params['states']:
+                params['states'][k] = float(params['states'][k])
             neuropil = QueryWrapper.from_rids(self.graph, neuron._id).owned_by(cls = 'Neuropil').nodes_as_objs[0]
-            neuron_models[neuron._id] = self.create_NeuronModel(neuron, cls, lpu = lpus[neuropil._id], **params)
-
+            neuron_models[neuron._id] = self.add_NeuronModel(neuron, cls,
+                                                             lpus[neuropil._id],
+                                                             **params)
 
         synapse_models = {}
-        for synapse in synapse_nodes.nodes_as_objs:
+        for synapse in synapses.nodes_as_objs:
             model = [pre for pre, post, v in g.in_edges(synapse._id, data = True) if v['class'] == 'Models'][0]
-            params = g.nodes[model]
+            params = copy.deepcopy(g.nodes[model])
             cls = params.pop('class')
-            synapse_models[synapse._id] = self.create_SynapseModel(pre_neuron, post_neuron, synapse, cls, **params)
-            neuropil = QueryWrapper.from_rids(self.graph, synapse._id).owned_by(cls = 'Neuropil').nodes_as_objs[0]
-            link(lpus[neuropil._id], synapse_models[synapse._id], 'Owns')
+            for k in params['params']:
+                params['params'][k] = float(params['params'][k])
+            for k in params['states']:
+                params['states'][k] = float(params['states'][k])
+            pre_neuron = [pre for pre, post, v in g.in_edges(synapse._id, data = True) \
+                          if v['class'] == 'SendsTo' and \
+                             issubclass(getattr(models, g.nodes[pre]['class']), models.Neuron)][0]
+            post_neuron = [post for pre, post, v in g.out_edges(synapse._id, data = True) \
+                           if v['class'] == 'SendsTo' and \
+                             issubclass(getattr(models, g.nodes[post]['class']), models.Neuron)][0]
+            post_neuron_neuropil = QueryWrapper.from_rids(self.graph, post_neuron).owned_by(cls = 'Neuropil').nodes_as_objs[0]
+            synapse_models[synapse._id] = self.add_SynapseModel(
+                synapse, cls,
+                neuron_models[pre_neuron],
+                neuron_models[post_neuron],
+                lpus[post_neuron_neuropil._id],
+                **params)
 
+        maps = {}
+        for node in neuron_nodes:
+            model_rid = [pre for pre, post, v in g.in_edges(node, data = True) if v['class'] == 'Models'][0]
+            maps[model_rid] = neuron_models[node]._id
+        for node in synapse_nodes:
+            model_rid = [pre for pre, post, v in g.in_edges(node, data = True) if v['class'] == 'Models'][0]
+            maps[model_rid] = synapse_models[node]._id
+        return maps
 
-        for neuron_
-
-
-    def add_ExecutableCircuit(self, name, version = None, circuit_diagram = None):
+    def add_ExecutableCircuit(self, name, version = None, circuit_diagram = None,
+                              js = None):
         """
         Add an executable circuit
         """
@@ -2512,11 +2541,13 @@ class NeuroArch(object):
 
         obj = self.graph.ExecutableCircuits.create(**circuit_info)
         if circuit_diagram is not None:
-            diagram_obj = self.add_CircuitDiagram(name, circuit_diagram, version = version)
+            diagram_obj = self.add_CircuitDiagram(name, circuit_diagram,
+                                                  version = version,
+                                                  js = js)
             self.link(obj, diagram_obj, 'HasData')
         return obj
 
-    def add_CircuitDiagram(self, name, diagram, version = None):
+    def add_CircuitDiagram(self, name, diagram, version = None, js = None):
         self._database_writeable_check()
         assert isinstance(name, str), 'name must be a str'
         assert isinstance(diagram, str), 'name must be a str'
@@ -2526,11 +2557,15 @@ class NeuroArch(object):
                 circuit_info['version'] = version
             else:
                 raise TypeError('version must be a str')
-
+        if js is not None:
+            if isinstance(js, str):
+                circuit_info['js'] = js
+            else:
+                raise TypeError('javascript must be a str')
         obj = self.graph.CircuitDiagrams.create(**circuit_info)
         return obj
 
-    def add_LPU(self, neuropil, version = None):
+    def add_LPU(self, neuropil, circuit_model, version = None):
         self._database_writeable_check()
         neuropil = self._get_obj_from_str(neuropil)
         if not isinstance(neuropil, models.Neuropil):
@@ -2543,28 +2578,106 @@ class NeuroArch(object):
             else:
                 raise TypeError('version must be a str')
 
+        circuit_model = self._get_obj_from_str(circuit_model)
+        if not isinstance(circuit_model, models.ExecutableCircuit):
+            raise TypeError('circuit_model must be an ExecutableCircuit')
         lpu_obj = self.graph.LPUs.create(**lpu_info)
-        link(lpu_obj, neuropil, 'Models')
+        self.link(lpu_obj, neuropil, 'Models')
+        self.link(circuit_model, lpu_obj, 'Owns')
         return lpu_obj
 
-    def add_Pattern(self, tract, version = None):
+    def add_Pattern(self, tract, circuit_model, version = None):
+        self._database_writeable_check()
         pass
 
-    def add_NeuronModel(self, neuron, model_cls, lpu = None, **params):
-        if lpu is not None:
-            lpu = self._get_obj_from_str(lpu)
-            if isinstance(lpu, models.LPU):
-                link(lpus[neuropil._id], neuron_models[neuron._id], 'Owns')
-            else:
-                raise TypeError('lpu must be of models.LPU instance')
+    def add_NeuronModel(self, neuron, model_cls, lpu, **params):
+        self._database_writeable_check()
+        neuron = self._get_obj_from_str(neuron)
+        assert isinstance(neuron, models.Neuron), \
+               'neuron must be either a Neuron object or its rid'
+        # circuit_model = self._get_obj_from_str(circuit_model)
+        # assert isinstance(neuron, models.ExecutableCircuit), \
+        #        'neuron must be either an ExecutableCircuit object or its rid'
+        # self._uniqueness_check('NeuronModel', unique_in = circuit_model,
+        #                        name = neuron.uname)
+        model_cls = getattr(models, model_cls)
+        assert issubclass(model_cls, models.NeuronModel),\
+               'model_cls must be one of the models.NeuronModel subclass'
+        lpu = self._get_obj_from_str(lpu)
+        if not isinstance(lpu, models.LPU):
+            raise TypeError('lpu must be of models.LPU instance')
 
-        port_obj = self.add_Port()
-        link(neuron_model_obj, port_obj)
+        neuron_model_obj = getattr(self.graph, model_cls.element_plural).create(
+                                        name = neuron.uname, **params)
+        self.link(neuron_model_obj, neuron, 'Models')
+        self.link(lpu, neuron_model_obj, 'Owns')
+        port_obj = self.add_Port(neuron_model_obj, lpu)
+        return neuron_model_obj
 
-    def add_SynapseModel(self, synapse, model_cls, pre_neuron_model = None, post_neuron_model = None, lpu = None, **params):
+    def add_Port(self, neuron, lpu, selector = None):
+        self._database_writeable_check()
+        neuron = self._get_obj_from_str(neuron)
+        if not isinstance(neuron, models.NeuronModel):
+            raise TypeError('neuorn must be of model.NeuronModel class')
+
+        lpu = self._get_obj_from_str(lpu)
+        if not isinstance(lpu, models.LPU):
+            raise TypeError('lpu must be of models.LPU instance')
+        port_obj = self.graph.Ports.create()
+        port_obj.update(selector = '/{}/{}'.format(lpu.name.replace('(','_').replace(')',''), port_obj._id[1:].replace(':', '0')) if selector is None else selector,
+                        port_type = 'spike' if neuron.spiking else 'gpot',
+                        port_io = 'out')
+        self.link(neuron, port_obj, 'SendsTo')
+        self.link(lpu, port_obj, 'Owns')
+        return port_obj
+
+    def add_SynapseModel(self, synapse, model_cls,
+                         pre_neuron,
+                         post_neuron,
+                         lpu, **params):
         # make sure the the link from post to synapse is also added for synapses like NMDA
-        pass
+        self._database_writeable_check()
+        synapse = self._get_obj_from_str(synapse)
+        assert isinstance(synapse, (models.Synapse, models.InferredSynapse)), \
+                   'synapse must be either a Synapse object or its rid'
 
+        model_cls = getattr(models, model_cls)
+        assert issubclass(model_cls, models.SynapseModel),\
+               'model_cls must be one of the models.SynapseModel subclass'
+        pre_neuron = self._get_obj_from_str(pre_neuron)
+        if not issubclass(type(pre_neuron), models.NeuronModel):
+            raise TypeError('pre_neuron must be models.NeuronModel type')
+
+        post_neuron = self._get_obj_from_str(post_neuron)
+        if not issubclass(type(pre_neuron), models.NeuronModel):
+            raise TypeError('post_neuron must be models.NeuronModel type')
+
+        pre_lpu = QueryWrapper.from_rids(self.graph, pre_neuron._id).owned_by(cls = 'LPU').nodes_as_objs[0]
+        post_lpu = lpu
+        #post_lpu = QueryWrapper.from_rids(self.graph, post_neuron._id).owned_by(cls = 'LPU').nodes_as_objs[0]
+
+        synapse_model_obj = getattr(self.graph, model_cls.element_plural).create(name = synapse.uname, **params)
+        self.link(synapse_model_obj, synapse, 'Models')
+        self.link(lpu, synapse_model_obj, 'Owns')
+
+        if pre_lpu._id == post_lpu._id:
+            self.link(pre_neuron, synapse_model_obj, edge_type = 'SendsTo', variable = synapse_model_obj.link_pre)
+            self.link(synapse_model_obj, post_neuron, edge_type = 'SendsTo')
+            if synapse_model_obj.link_post is not None:
+                self.link(post_neuron, synapse_model_obj, edge_type = 'SendsTo', variable = synapse_model_obj.link_post)
+        else:
+            self.link(synapse_model_obj, post_neuron, edge_type = 'SendsTo')
+            if synapse_model_obj.link_post is not None:
+                self.link(post_neuron, synapse_model_obj, edge_type = 'SendsTo', variable = synapse_model_obj.link_post)
+            #check if there is a connected port through Pattern to a port in post_lpu
+            # if has
+            # link(port_obj, synapse_model_obj, edge_type = 'SendsTo', variable = synapse_model_obj.link_pre)
+            # else
+            # port_obj = self.add_Port()
+            # find pattern or create pattern
+            # link(port_obj, synapse_model_obj, edge_type = 'SendsTo', variable = synapse_model_obj.link_pre)
+            # link pre_port -> Pattern in port, Pattern in port to Pattern out port, Pattern out port to port_obj
+        return synapse_model_obj
 
 def outgoing_synapses(q, N = None, rel='>',include_inferred=True):
     """

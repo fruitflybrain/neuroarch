@@ -1450,7 +1450,7 @@ class QueryWrapper(object):
 
     def path_to_neurons(self, unames, synapse_threshold = 10, max_hops = 2):
         q1 = self.__class__(self._graph, QueryString("""select from Neuron where uname in ["{}"]""".format('","'.join(unames)), "sql"), debug = self.debug)
-        return self.path_to(q1)
+        return self.path_to(q1)[0]
 
     def direct_path_to(self, q, synapse_threshold = 10, max_hops = 2):
         return self.path_to(q, synapse_threshold = synapse_threshold,
