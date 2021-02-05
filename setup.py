@@ -14,12 +14,12 @@ from setuptools import find_packages
 from setuptools import setup
 
 NAME =               'neuroarch'
-VERSION =            '0.1.1'
-AUTHOR =             'Lev Givon'
-AUTHOR_EMAIL =       'lev@columbia.edu'
-URL =                'https://github.com/neurokernel/neuroarch/'
-MAINTAINER =         AUTHOR
-MAINTAINER_EMAIL =   AUTHOR_EMAIL
+VERSION =            '0.2.0'
+AUTHOR =             'Lev Givon, Nikul Ukani, Yiyin Zhou'
+AUTHOR_EMAIL =       'lev@columbia.edu, nikul@ee.columbia.edu, yiyin@ee.columbia.edu'
+URL =                'https://github.com/fruitflybrain/neuroarch/'
+MAINTAINER =         'Yiyin Zhou'
+MAINTAINER_EMAIL =   'yiyin@ee.columbia.edu'
 DESCRIPTION =        'A graph-based platform for representing Drosophila brain architectures'
 LONG_DESCRIPTION =   DESCRIPTION
 DOWNLOAD_URL =       URL
@@ -58,10 +58,11 @@ if __name__ == "__main__":
         include_package_data = True,
         install_requires = [
             'daff',
-            'networkx>=1.10',
+            'networkx>=2.4',
             'numpy',
             'pandas',
             'path.py',
-            'pyorient>=1.4.6',
+            'pyorient',
             'deepdiff'],
-        )
+        dependency_links=['https://github.com/fruitflybrain/pyorient/archive/v1.5.6.tar.gz#egg=pyorient-1.5.6'],
+    )
