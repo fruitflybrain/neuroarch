@@ -611,6 +611,19 @@ class NeuroArch(object):
                     cls = cls, name = attr['name'], rid = tmp[0]._id,
                     ds = unique_in.name,
                     version = unique_in.version))
+        elif cls == 'Circuit':
+            if not isinstance(unique_in, models.DataSource):
+                raise TypeError('To check the uniqueness of a {} instance, unique_in must be a DataSource object'.format(cls))
+            tmp = self.sql_query(
+                """select from (select from {cls} where name = "{name}") let $q = (select from (select expand($parent.$parent.current.in('Owns'))) where @class='{ucls}' and @rid = {rid}) where $q.size() = 1""".format(
+                    rid = unique_in._id, cls = cls, name = attr['name'], ucls = unique_in.element_type))
+            if len(tmp):
+                objs = tmp.nodes_as_objs
+                if attr['name'] in [obj.name for obj in objs]:
+                    raise NodeAlreadyExistError("""{cls} {name} already exists under DataSource {ds} version {version}, rid = {rid}""".format(
+                        cls = cls, name = attr['name'],
+                        ds = unique_in.name,
+                        version = unique_in.version, rid = objs[0]._id))
         elif cls == 'ArborizationData':
             if not isinstance(unique_in, (models.Neuron, models.Synapse)):
                 raise TypeError('To check the uniqueness of a ArborizationData instance, unique_in must be a Neuron or a Synapse object')
@@ -1064,6 +1077,66 @@ class NeuroArch(object):
         self.set('Tract', name, tract, data_source = connect_DataSource)
         return tract
 
+    def add_Circuit(self, name, circuit_type, neuropil = None, data_source =  None):
+        """
+        Create a Subregion record and link it to related node types.
+
+        Parameters
+        ----------
+        name : str
+            Name of the circuit
+        neuropil : str or neuroarch.models.Neuropil (optional)
+            Neuropil that owns the subregion. Can be specified either by its name
+            or the Neuropil object instance.
+        data_source : neuroarch.models.DataSource (optional)
+            The datasource. If not specified, default DataSource will be used.
+
+        Returns
+        -------
+        neuroarch.models.Circuit
+            Created Circuit object
+        """
+        assert isinstance(name, str), 'name must be of str type'
+        self._database_writeable_check()
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
+        self._uniqueness_check('Circuit', unique_in = connect_DataSource,
+                               name = name)
+
+        circuit_info = {'name': name}
+        
+        batch = self.graph.batch()
+        node_name = _to_var_name('Circuit_{}'.format(name))
+        plural = getattr(models, circuit_type).element_plural
+        batch[node_name] = getattr(batch, plural).create(**circuit_info)
+
+        # Link subsystem if specified
+        if neuropil is not None:
+            if isinstance(neuropil, str):
+                neuropil_obj = self.get('Neuropil', neuropil, connect_DataSource)
+            elif isinstance(neuropil, models.Neuropil):
+                if self._is_in_datasource(connect_DataSource, neuropil):
+                    neuropil_obj = neuropil
+                else:
+                    raise ValueError(
+                        'Neuropil {} with rid {} to be linked with subregion is \
+                        not in the same datasource {} version {}'.format(
+                            neuropil.name, neuropil._id,
+                            connect_DataSource.name, connect_DataSource.version))
+            self.link_with_batch(batch, neuropil_obj, batch[:node_name], 'Owns')
+
+        # Link data_source
+        self.link_with_batch(batch, connect_DataSource, batch[:node_name],
+                             'Owns')
+
+        circuit = batch['${}'.format(node_name)]
+        batch.commit(20)
+
+        self.set('Circuit', name, circuit, data_source = connect_DataSource)
+        return circuit
+
     def add_Neuron(self, uname,
                    name,
                    referenceId = None,
@@ -1074,7 +1147,8 @@ class NeuroArch(object):
                    arborization = None,
                    neurotransmitters = None,
                    neurotransmitters_datasources = None,
-                   data_source = None):
+                   data_source = None,
+                   circuit = None):
         """
         Parameters
         ----------
@@ -1155,11 +1229,19 @@ class NeuroArch(object):
         else:
             if info is not None:
                 raise TypeError('info must be a dict with str values')
+        if circuit is not None:
+            circuit = self._get_obj_from_str(circuit)
+            if not issubclass(type(circuit), models.Circuit):
+                raise TypeError('circuit must be a models.Circuit subclass')
 
         batch[neuron_name] = batch.Neurons.create(**neuron_info)
 
         self.link_with_batch(batch, connect_DataSource, batch[:neuron_name],
                              'Owns')
+        if circuit is not None:
+            self.link_with_batch(batch, circuit, batch[:neuron_name], 'Owns')
+            # a hack now to make nlp work
+            self.link_with_batch(batch, batch[:neuron_name], circuit, 'ArborizesIn', kind = ['b','s'])
 
         if arborization is not None:
             if not isinstance(arborization, list):
@@ -1218,7 +1300,7 @@ class NeuroArch(object):
                                               connect_DataSource),
                                      batch[:neuron_name],
                                      'Owns')
-
+        
         neuron = batch['${}'.format(neuron_name)]
         batch.commit(20)
         self.set('Neuron', name, neuron, data_source = connect_DataSource)
