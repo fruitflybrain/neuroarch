@@ -608,7 +608,7 @@ class NeuroArch(object):
             if len(tmp):
                 objs = tmp.nodes_as_objs
                 raise NodeAlreadyExistError("""{cls} {name} already exists with rid = {rid}, under DataSource {ds} version {version}""".format(
-                    cls = cls, name = attr['name'], rid = tmp[0]._id,
+                    cls = cls, name = attr['name'], rid = objs[0]._id,
                     ds = unique_in.name,
                     version = unique_in.version))
         elif cls == 'Circuit':
