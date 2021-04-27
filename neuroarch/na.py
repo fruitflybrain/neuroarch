@@ -2537,7 +2537,7 @@ class NeuroArch(object):
         return {n._id: n.get_props() for n in self.find_objs('DataSource')}
 
     def create_model_from_circuit(self, model_name, model_version, graph,
-                                  circuit_diagram = None, js = None):
+                                  circuit_diagrams = None, submodules = None):
         if isinstance(graph, nx.DiGraph):
             g = graph
         elif isinstance(graph, dict) and 'nodes' in graph and 'edges' in graph:
@@ -2550,12 +2550,12 @@ class NeuroArch(object):
         synapse_nodes = [rid for rid, v in g.nodes(data=True) if issubclass(getattr(models, v['class']), models.Synapse)]
         neurons =  QueryWrapper.from_rids(self.graph, *neuron_nodes)
         synapses =  QueryWrapper.from_rids(self.graph, *synapse_nodes)
-        neuropils = neurons.owned_by(cls = 'Neuropil')
+        neuropils = neurons.traverse_owned_by(cls = 'Neuropil')
 
         # create LPU
         circuit_model_obj = self.add_ExecutableCircuit(model_name, version = model_version,
-                                                       circuit_diagram = circuit_diagram,
-                                                       js = js)
+                                                       circuit_diagrams = circuit_diagrams,
+                                                       submodules = submodules)
 
         lpus = {}
         for neuropil in neuropils.nodes_as_objs:
@@ -2570,7 +2570,7 @@ class NeuroArch(object):
                 params['params'][k] = float(params['params'][k])
             for k in params['states']:
                 params['states'][k] = float(params['states'][k])
-            neuropil = QueryWrapper.from_rids(self.graph, neuron._id).owned_by(cls = 'Neuropil').nodes_as_objs[0]
+            neuropil = QueryWrapper.from_rids(self.graph, neuron._id).traverse_owned_by(cls = 'Neuropil').nodes_as_objs[0]
             neuron_models[neuron._id] = self.add_NeuronModel(neuron, cls,
                                                              lpus[neuropil._id],
                                                              **params)
@@ -2607,8 +2607,8 @@ class NeuroArch(object):
             maps[model_rid] = synapse_models[node]._id
         return maps
 
-    def add_ExecutableCircuit(self, name, version = None, circuit_diagram = None,
-                              js = None):
+    def add_ExecutableCircuit(self, name, version = None, circuit_diagrams = None,
+                              submodules = None):
         """
         Add an executable circuit
         """
@@ -2622,28 +2622,29 @@ class NeuroArch(object):
                 raise TypeError('version must be a str')
 
         obj = self.graph.ExecutableCircuits.create(**circuit_info)
-        if circuit_diagram is not None:
-            diagram_obj = self.add_CircuitDiagram(name, circuit_diagram,
+        if circuit_diagrams is not None:
+            diagram_obj = self.add_CircuitDiagram(name, circuit_diagrams,
                                                   version = version,
-                                                  js = js)
+                                                  submodules = submodules)
             self.link(obj, diagram_obj, 'HasData')
         return obj
 
-    def add_CircuitDiagram(self, name, diagram, version = None, js = None):
+    def add_CircuitDiagram(self, name, diagrams, version = None, submodules = None):
         self._database_writeable_check()
         assert isinstance(name, str), 'name must be a str'
-        assert isinstance(diagram, str), 'name must be a str'
-        circuit_info = {'name': name, 'diagram': diagram}
+        assert isinstance(diagrams, dict) and all(isinstance(n, str) for n in diagrams.values()),\
+               'name must be a dict of str'
+        circuit_info = {'name': name, 'diagrams': diagrams}
         if version is not None:
             if isinstance(version, str):
                 circuit_info['version'] = version
             else:
                 raise TypeError('version must be a str')
-        if js is not None:
-            if isinstance(js, str):
-                circuit_info['js'] = js
+        if submodules is not None:
+            if isinstance(submodules, dict) and all(isinstance(n, str) for n in submodules.values()):
+                circuit_info['submodules'] = submodules
             else:
-                raise TypeError('javascript must be a str')
+                raise TypeError('javascript must be a dict of str')
         obj = self.graph.CircuitDiagrams.create(**circuit_info)
         return obj
 
