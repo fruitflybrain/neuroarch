@@ -62,7 +62,7 @@ if __name__ == "__main__":
             'numpy',
             'pandas',
             'path.py',
-            'pyorient',
+            'pyorient @ https://github.com/fruitflybrain/pyorient/archive/v1.5.6.tar.gz#egg=pyorient-1.5.6',
             'pyorient_native',
             'deepdiff'],
         dependency_links=['https://github.com/fruitflybrain/pyorient/archive/v1.5.6.tar.gz#egg=pyorient-1.5.6'],
