@@ -14,7 +14,7 @@ from setuptools import find_packages
 from setuptools import setup
 
 NAME =               'neuroarch'
-VERSION =            '0.3.0'
+VERSION =            '0.3.1'
 AUTHOR =             'Lev Givon, Nikul Ukani, Yiyin Zhou'
 AUTHOR_EMAIL =       'lev@columbia.edu, nikul@ee.columbia.edu, yiyin@ee.columbia.edu'
 URL =                'https://github.com/fruitflybrain/neuroarch/'
