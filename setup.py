@@ -64,6 +64,7 @@ if __name__ == "__main__":
             'path.py',
             'pyorient @ https://github.com/fruitflybrain/pyorient/archive/v1.5.6.tar.gz#egg=pyorient-1.5.6',
             'pyorient_native',
-            'deepdiff'],
+            'deepdiff',
+            'tqdm'],
         dependency_links=['https://github.com/fruitflybrain/pyorient/archive/v1.5.6.tar.gz#egg=pyorient-1.5.6'],
     )
