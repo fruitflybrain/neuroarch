@@ -5,6 +5,11 @@ Neuroarch
 
 Package Description
 -------------------
+
+`Fruit Fly Brain Observatory <https://www.fruitflybrain.org>`_ |
+`GitHub Repository <https://github.com/fruitflybrain/neuroarch>`_ |
+`Online Documentation <https://neuroarch.readthedocs.io>`_
+
 Neuroarch is a database for codifying knowledge about fruit fly brain circuits.
 It defines a hierarchical data model for representation of experimentally
 obtained biological data, neural circuit models, and the relationships between
