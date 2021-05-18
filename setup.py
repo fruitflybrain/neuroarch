@@ -37,6 +37,11 @@ CLASSIFIERS = [
 NAMESPACE_PACKAGES = ['neuroarch']
 PACKAGES =           find_packages()
 
+docs_extras = [
+    'sphinx >= 1.3',
+    'sphinx_rtd_theme >= 0.1.6',
+]
+
 if __name__ == "__main__":
     if os.path.exists('MANIFEST'):
         os.remove('MANIFEST')
@@ -67,4 +72,7 @@ if __name__ == "__main__":
             'deepdiff',
             'tqdm'],
         dependency_links=['https://github.com/fruitflybrain/pyorient/archive/v1.5.6.tar.gz#egg=pyorient-1.5.6'],
+        extra_requires = {
+            'doc': docs_extras,
+        }
     )
