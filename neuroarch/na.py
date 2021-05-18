@@ -70,6 +70,7 @@ class RecordNotFoundError(Exception):
     pass
 
 class NodeAlreadyExistWarning(Warning):
+    """NeuroArch node with the same property already exsits"""
     pass
 
 class DuplicateNodeWarning(Warning):
@@ -127,10 +128,7 @@ def _to_var_name(s):
 
 
 class NeuroArch(object):
-    def __init__(self, db_name, host = 'localhost', port = 2424,
-                 user = 'root', password = 'root', mode = 'r',
-                 new_models = False, debug = False):
-        """
+    """
         Create or connect to a NeuroArch object for database access.
 
         Parameters
@@ -154,6 +152,9 @@ class NeuroArch(object):
         debug : bool (optional)
             Whether the queries are done in debug mode
         """
+    def __init__(self, db_name, host = 'localhost', port = 2424,
+                 user = 'root', password = 'root', mode = 'r',
+                 new_models = False, debug = False):
         self._mode = mode
         self._db_name = db_name
         self._host = host
@@ -196,6 +197,7 @@ class NeuroArch(object):
         self._check = True
 
     def connect(self):
+        """Connect to the database specified during instantiation"""
         if self._mode == 'r':
             initial_drop = False
             self._allow_write = False
@@ -217,6 +219,7 @@ class NeuroArch(object):
                              serialization_type = serialization_type)
 
     def reconnect(self):
+        """Reconnect to the database specified during instantiation"""
         if self._mode == 'r':
             serialization_type = OrientSerialization.Binary
         else:
@@ -243,7 +246,7 @@ class NeuroArch(object):
             Type of the Node to be retrieved.
         name : str
             Name to be retrieved
-        data_source : neuroarch.models.DataSource or None
+        data_source : models.DataSource or None
             The DataSource under which the unique object will be retrieved
             If None, the searched object is not bound to the DataSource.
         attr : keyword arguments (optional)
@@ -251,7 +254,7 @@ class NeuroArch(object):
 
         Returns
         -------
-        obj : neuroarch.models.Node subclass
+        obj : models.Node or subclass
             The object retrieved
         """
         #ds = self._default_DataSource if data_source is None else data_source
@@ -297,7 +300,7 @@ class NeuroArch(object):
         name : str
             The unique name of the node under the data_source.
             It will be used to key the cached item.
-        value : models.Node subclasses
+        value : models.Node or subclasses
             The object for the database record to be cached.
         data_source : models.DataSource
             The DataSource under which name can be uniquely found.
@@ -338,7 +341,7 @@ class NeuroArch(object):
 
         Returns
         -------
-        q : QueryWrapper
+        q : query.QueryWrapper
             Result of the query.
         """
         q = QueryWrapper(self.graph, QueryString(query_text, 'sql'),
@@ -354,7 +357,7 @@ class NeuroArch(object):
         ----------
         cls : str
              Node class or classes to retrieve.
-        attr : keyword arguments, optional
+        attr : dict (optional)
             node attributes using key=value.
 
         Returns
@@ -379,7 +382,7 @@ class NeuroArch(object):
         ----------
         cls : str
              Node class or classes to retrieve.
-        attr : keyword arguments, optional
+        attr : dict (optional)
             node attributes using key = value.
 
         Returns
@@ -398,7 +401,7 @@ class NeuroArch(object):
         ----------
         cls : str
              Node class or classes to retrieve.
-        attr : keyword arguments, optional
+        attr : keyword arguments (optional)
             node attributes using key=value.
 
         Returns
@@ -421,7 +424,7 @@ class NeuroArch(object):
         ----------
         cls : str
              Node class or classes to retrieve.
-        attr : keyword arguments, optional
+        attr : dict (optional)
             node attributes using key=value.
 
         Returns
@@ -439,7 +442,7 @@ class NeuroArch(object):
         ----------
         cls : str
             Node class or classes to retrieve.
-        data_source : neuroarch.models.DataSource
+        data_source : models.DataSource
             The DataSource to search from.
         attr : keyword arguments, optional
             Node attributes using key=value.
@@ -469,9 +472,9 @@ class NeuroArch(object):
 
         Parameters
         ----------
-        data_source : neuroarch.models.DataSource
+        data_source : models.DataSource
             The data_source to be searched for
-        obj : neuroarch.models.{}
+        obj : models.*
             An instance of NeuroArch OGM class
         """
         q = self.sql_query(
@@ -792,12 +795,12 @@ class NeuroArch(object):
                 'faces': a single list of int, every 3 entries specify samples of vertices.
             Or, specify the file path to a json file that includes the definition of the mesh.
             Or, specify only a url which can be readout later on.
-        data_source : neuroarch.models.DataSource (optional)
+        data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
 
         Returns
         -------
-        neuroarch.models.Subsystem
+        models.Subsystem
             Created Subsystem object
         """
         assert isinstance(name, str), 'name must be of str type'
@@ -846,7 +849,7 @@ class NeuroArch(object):
             (abbreviation is preferred, full name can be given in the synonyms)
         synonyms : list of str
             Synonyms of the neuropil.
-        subsystem : str or neuroarch.models.Subsystem (optional)
+        subsystem : str or models.Subsystem (optional)
             Subsystem that owns the neuropil. Can be specified either by its name
             or the Subsytem object instance.
         morphology : dict (optional)
@@ -856,12 +859,12 @@ class NeuroArch(object):
                 'faces': a single list of int, every 3 entries specify samples of vertices.
             Or, specify the file path to a json file that includes the definition of the mesh.
             Or, specify only a url which can be readout later on.
-        data_source : neuroarch.models.DataSource (optional)
+        data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
 
         Returns
         -------
-        neuroarch.models.Neuropil
+        models.Neuropil
             Created Neuropil object
         """
         assert isinstance(name, str), 'name must be of str type'
@@ -937,7 +940,7 @@ class NeuroArch(object):
             (abbreviation is preferred, full name can be given in the synonyms)
         synonyms : list of str
             Synonyms of the synonyms.
-        neuropil : str or neuroarch.models.Neuropil (optional)
+        neuropil : str or models.Neuropil (optional)
             Neuropil that owns the subregion. Can be specified either by its name
             or the Neuropil object instance.
         morphology : dict (optional)
@@ -947,12 +950,12 @@ class NeuroArch(object):
                 'faces': a single list of int, every 3 entries specify samples of vertices.
             Or, specify the file path to a json file that includes the definition of the mesh.
             Or, specify only a url which can be readout later on.
-        data_source : neuroarch.models.DataSource (optional)
+        data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
 
         Returns
         -------
-        neuroarch.models.Subregion
+        models.Subregion
             Created Subregion object
         """
         assert isinstance(name, str), 'name must be of str type'
@@ -1034,12 +1037,12 @@ class NeuroArch(object):
                 'faces': a single list of int, every 3 entries specify samples of vertices.
             Or, specify the file path to a json file that includes the definition of the mesh.
             Or, specify only a url which can be readout later on.
-        data_source : neuroarch.models.DataSource (optional)
+        data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
 
         Returns
         -------
-        neuroarch.models.Tract
+        models.Tract
             Created Tract object
         """
         assert isinstance(name, str), 'name must be of str type'
@@ -1085,15 +1088,15 @@ class NeuroArch(object):
         ----------
         name : str
             Name of the circuit
-        neuropil : str or neuroarch.models.Neuropil (optional)
+        neuropil : str or models.Neuropil (optional)
             Neuropil that owns the subregion. Can be specified either by its name
             or the Neuropil object instance.
-        data_source : neuroarch.models.DataSource (optional)
+        data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
 
         Returns
         -------
-        neuroarch.models.Circuit
+        models.Circuit
             Created Circuit object
         """
         assert isinstance(name, str), 'name must be of str type'
@@ -1150,6 +1153,8 @@ class NeuroArch(object):
                    data_source = None,
                    circuit = None):
         """
+        Create a Neuron Record and link it to the related node types.
+
         Parameters
         ----------
         uname : str
@@ -1183,17 +1188,17 @@ class NeuroArch(object):
             Name of the regions must already be present in the database.
         neurotransmitters : str or list of str (optional)
             The neurotransmitter(s) expressed by the neuron
-        neurotransmitters_datasources : neuroarch.models.DataSource or list of neuroarch.models.DataSource (optional)
+        neurotransmitters_datasources : models.DataSource or list of models.DataSource (optional)
             The datasource of neurotransmitter data.
             If None, all neurotransmitter will have the same datasource of the Neuron.
             If specified, the size of the list must be the same as the size of
             neurotransmitters, and have one to one corresponsdence in the same order.
-        data_source : neuroarch.models.DataSource (optional)
+        data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
 
         Returns
         -------
-        neuron : neuroarch.models.Neuron
+        neuron : models.Neuron
             Created Neuron object
         """
         assert isinstance(uname, str), 'uname must be of str type'
@@ -1314,13 +1319,15 @@ class NeuroArch(object):
 
     def add_neurotransmitter(self, neuron, neurotransmitters, data_sources = None):
         """
+        Add neurotransmitter data and link it to a neuron.
+
         Parameters
         ----------
-        neuron : neuroarch.models.Neuron subclass
+        neuron : models.Neuron or subclass
             An instance of Neuron class to which the neurotransmitters will be associated to
         neurotransmitters : str or list of str
             The neurotransmitter(s) expressed by the neuron
-        data_sources : neuroarch.models.DataSource or list of neuroarch.models.DataSource (optional)
+        data_sources : models.DataSource or list of models.DataSource (optional)
             The datasource of neurotransmitter data.
             If None, all neurotransmitter will have the same datasource of the Neuron.
             If specified, the size of the list must be the same as the size of
@@ -1369,7 +1376,7 @@ class NeuroArch(object):
 
         Parameters
         ----------
-        obj : neuroarch.models.BioNode subclass
+        obj : models.BioNode or subclass
             An instance of BioNode class, e.g., Neuropil, Neuron, etc...
             to which the morphology will be associated to
         morphology : list of dict (optional)
@@ -1382,7 +1389,7 @@ class NeuroArch(object):
             or a full definition of the morphology according the schema.
             For swc, required fields are ['sample', 'identifier', 'x', 'y, 'z', 'r', 'parent'].
             For mesh, requires an obj file or ['faces', 'vertices'] defined as rastered list of a wavefront obj file
-        data_source : neuroarch.models.DataSource (optional)
+        data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
         """
         self._database_writeable_check()
@@ -1464,6 +1471,23 @@ class NeuroArch(object):
             self.graph.Owns.create(data_source, morph_obj)
 
     def add_neuron_arborization(self, neuron, arborization, data_source = None):
+        """
+        Add arborization data of a neuron and link it to the neuron.
+
+        Parameters
+        ----------
+        neuron : models.Neuron or subclass
+            An instance of Neuron class to which the arborization data will be associated to.
+        arborization : list of dict
+            A list of dictionaries define the arborization pattern of
+            the neuron in neuropils, subregions, and tracts, if applicable, with
+            {'type': 'neuropil' or 'subregion' or 'tract',
+             'dendrites': {'EB': 20, 'FB': 2},
+             'axons': {'NO': 10, 'MB': 22}}
+            Name of the regions must already be present in the database.
+        data_source : models.DataSource (optional)
+            The datasource. If not specified, default DataSource will be used.
+        """
         self._database_writeable_check()
         neuron = self._get_obj_from_str(neuron)
         if not isinstance(neuron, models.Neuron):
@@ -1544,6 +1568,7 @@ class NeuroArch(object):
                     data_source = None):
         """
         Add a Synapse from pre_neuron and post_neuron.
+
         The Synapse is typicall a group of synaptic contact points.
 
         parameters
@@ -1577,7 +1602,7 @@ class NeuroArch(object):
             {'type': 'neuropil' or 'subregion' or 'tract',
              'synapses': {'EB': 20, 'FB': 2}}
             Name of the regions must already be present in the database.
-        data_source : neuroarch.models.DataSource (optional)
+        data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
 
         Returns
@@ -1679,6 +1704,23 @@ class NeuroArch(object):
         return synapse
 
     def add_synapse_arborization(self, synapse, arborization, data_source = None):
+        """
+        Add data for the distribution of synapses within a Synapse node in Neuropils, Subregions and Tracts.
+
+        Parameters
+        ----------
+        synapse : neuorarch.models.synapse or subclass
+            An instance of Synapse class to which the arborization data will be associated to.
+        arborization : list of dict (optional)
+            A list of dictionaries define the arborization pattern of
+            the neuron in neuropils, subregions, and tracts, if applicable, with
+            {'type': 'neuropil' or 'subregion' or 'tract',
+             'synapses': {'EB': 20, 'FB': 2}}
+            Name of the regions must already be present in the database.
+        data_source : models.DataSource (optional)
+            The datasource. If not specified, default DataSource will be used.
+
+        """
         self._database_writeable_check()
         synapse = self._get_obj_from_str(synapse)
         if not isinstance(synapse, models.Synapse):
@@ -1729,6 +1771,7 @@ class NeuroArch(object):
                             data_source = None):
         """
         Add an InferredSynapse from pre_neuron and post_neuron.
+
         The Synapse is typicall a group of synaptic contact points.
 
         parameters
@@ -1760,12 +1803,12 @@ class NeuroArch(object):
             {'type': 'neuropil' or 'subregion' or 'tract',
              'synapses': {'EB': 20, 'FB': 2}}
             Name of the regions must already be present in the database.
-        data_source : neuroarch.models.DataSource (optional)
+        data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
 
         Returns
         -------
-        synapse : models.Synapse
+        synapse : models.InferredSynapse
             The created synapse object.
         """
         self._database_writeable_check()
@@ -1858,7 +1901,23 @@ class NeuroArch(object):
     def link(self, node1, node2, edge_type = None, **attr):
         """
         To create an edge between node1 and node2 with specified edge type.
-        If `edge_type` not given, infer from the types of nodes.
+
+        Parameters
+        ----------
+        node1 : models.Node or subclass
+            The node where the edge starts from.
+        node2 : models.Node or subclass
+            The node where the edge ends with.
+        edge_type : str (optional)
+            The name of the type of the edge (relation).
+            If `edge_type` not given, infer from the types of nodes.
+        attr : dict (optional)
+            Attributes of the edge.
+
+        Returns
+        -------
+        edge : models.Relationship or subclass
+            The created edge.
         """
         if edge_type is None:
             edge_type = relations[node1.element_type][node2.element_type]
@@ -1867,6 +1926,26 @@ class NeuroArch(object):
 
     def link_with_batch(self, batch, node1, node2, edge_type, **attr):
         """
+        To create an edge between node1 and node2 with specified edge type, when node1 and node2 are to be created in batch.
+
+        Parameters
+        ----------
+        batch : pyorient.ogm.batch.Batch
+            A batch object.
+        node1 : models.Node or subclass
+            The node where the edge starts from.
+        node2 : models.Node or subclass
+            The node where the edge ends with.
+        edge_type : str (optional)
+            The name of the type of the edge (relation).
+            If `edge_type` not given, infer from the types of nodes.
+        attr : dict (optional)
+            Attributes of the edge.
+
+        Returns
+        -------
+        edge : models.Relationship or subclass
+            The created edge.
         """
         batch[:] = getattr(batch, edge_type).create(node1, node2, **attr)
 
@@ -1973,7 +2052,6 @@ class NeuroArch(object):
             )
         self.remove_by_rids(rids_to_delete)
 
-
     def remove_Synapses(self, synapses, data_source = None, safe = True):
         """
         Remove synapses.
@@ -1983,10 +2061,10 @@ class NeuroArch(object):
         synapses: list of models.Synapse, models.InferredSynapse or str
             The synapses to be removed from database.
             All data associated with these neurons will also be removed
-        data_source: model.DataSource
+        data_source: model.DataSource (optional)
             The DataSource from which the synapses will be found will be removed,
             if str (as uname of synapses) are provided to the neuron parameter.
-        safe: bool
+        safe: bool (optional)
             If safe is True, will check every item in the neurons list
             if it is owned by the data_source. Otherwise, if models.Neuron is
             provided, will not check.
@@ -2041,12 +2119,21 @@ class NeuroArch(object):
         rids_to_delete = set(
             q.node_rids+data.node_rids+any_thing_owned.node_rids
             )
-        self.remove_by_rids(rids_to_delete)
+        self._remove_by_rids(rids_to_delete)
 
     def remove_Synapses_between(self, pre_neurons, post_neurons, data_source = None):
         """
         Remove synapses between a list of presynaptic neurons and
         a list of postsynaptic neurons.
+
+        Parameters
+        ----------
+        pre_neurons : a list of str or models.Neuron
+            The presynaptic neurons. If specified by str, can be either the rid or the uname of the neurons.
+        post_neurons : a list of str or models.Neuron
+            The postsynaptic neurons. If specified by str, can be either the rid or the uname of the neurons.
+        data_source: model.DataSource (optional)
+            The DataSource from which the pre- and post-synaptic neurons will be found will be queried.
         """
         self._database_writeable_check()
         connect_DataSource = self._default_DataSource if data_source is None \
@@ -2102,6 +2189,8 @@ class NeuroArch(object):
                       data_source = None,
                       safe = True):
         """
+        Update any property/data of a neuron.
+
         Parameters
         ----------
         neuron : str or models.Neuron
@@ -2139,18 +2228,22 @@ class NeuroArch(object):
             Name of the regions must already be present in the database.
         neurotransmitters : str or list of str (optional)
             The neurotransmitter(s) expressed by the neuron
-        neurotransmitters_datasources : neuroarch.models.DataSource or list of neuroarch.models.DataSource (optional)
+        neurotransmitters_datasources : models.DataSource or list of models.DataSource (optional)
             The datasource of neurotransmitter data.
             If None, all neurotransmitter will have the same datasource of the Neuron.
             If specified, the size of the list must be the same as the size of
             neurotransmitters, and have one to one corresponsdence in the same order.
-        data_source : neuroarch.models.DataSource (optional)
+        data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
         safe : bool (optional)
             If safe is True, will check every item in the neurons list
             if it is owned by the data_source. Otherwise, if models.Neuron is
             provided, will not check.
 
+        Returns
+        -------
+        bool
+            Whether the update was successful.
         """
         self._database_writeable_check()
         connect_DataSource = self._default_DataSource if data_source is None \
@@ -2218,7 +2311,7 @@ class NeuroArch(object):
         if arborization is not None:
             arborization_data = get_data(q_neuron, data_types = 'ArborizationData')
             if len(arborization_data):
-                self.remove_by_rids(arborization_data.rids)
+                self._remove_by_rids(arborization_data.rids)
             self.add_neuron_arborization(neuron_to_update, arborization, data_source = connect_DataSource)
         else:
             if update_chain:
@@ -2236,7 +2329,7 @@ class NeuroArch(object):
         if neurotransmitters is not None:
             neurotransmitter_data = get_data(q_neuron, data_types = 'NeurotransmitterData')
             if len(neurotransmitter_data):
-                self.remove_by_rids(neurotransmitter_data.rids)
+                self._remove_by_rids(neurotransmitter_data.rids)
             self.add_neurotransmitter(neuron_to_update, neurotramistters, data_source = neurotransmitters_datasources if neurotransmitters_datasources is not None else data_source)
         else:
             if update_chain:
@@ -2257,7 +2350,7 @@ class NeuroArch(object):
             morphology_data = get_data(q_neuron, data_types = 'MorphologyData')
             if len(morphology_data):
                 nodes_to_remove = [m._id for m in morphology_data.nodes_as_objs if m.type in morphology_types_to_update]
-                self.remove_by_rids(nodes_to_remove)
+                self._remove_by_rids(nodes_to_remove)
             self.add_morphology(neuron_to_update, morphology, data_source = data_source)
         else:
             if update_chain:
@@ -2325,6 +2418,46 @@ class NeuroArch(object):
                        morphology = None,
                        arborization = None,
                        data_source = None):
+        """
+        Update any property/data of a synapse.
+
+        Parameters
+        ----------
+        synapse : str or models.Synapse
+            The synapse to be updated, speicified either by
+            a mdoels.Synapse object, a str for its uname or a str
+            starts with '#' as the rid of OrientDB record ID.
+        N : int (optional)
+            The number of synapses from pre_neuron to the post_neuron.
+        NHP : int (optional)
+            The number of synapses that can be confirmed with a high probability
+        morphology : list of dict (optional)
+            Each dict in the list defines a type of morphology of the neuron.
+            Must be loaded from a file.
+            The dict must include the following key to indicate the type of morphology:
+                {'type': 'swc'}
+            For swc, required fields are ['sample', 'identifier', 'x', 'y, 'z', 'r', 'parent'].
+            For synapses, if both postsynaptic and presynaptic sites are available,
+            x, y, z, r must each be a list where the first half indicate the
+            locations/radii of postsynaptic sites (on the presynaptic neuron),
+            and the second half indicate the locations/radii of the presynaptic
+            sites (on the postsynaptic neuron). There should be a one-to-one relation
+            between the first half and second half.
+            parent must be a list of -1.
+        arborization : list of dict (optional)
+            A list of dictionaries define the arborization pattern of
+            the neuron in neuropils, subregions, and tracts, if applicable, with
+            {'type': 'neuropil' or 'subregion' or 'tract',
+             'synapses': {'EB': 20, 'FB': 2}}
+            Name of the regions must already be present in the database.
+        data_source : models.DataSource (optional)
+            The datasource. If not specified, default DataSource will be used.
+
+        Returns
+        -------
+        bool
+            Whether the update was successful.
+        """
         self._database_writeable_check()
         connect_DataSource = self._default_DataSource if data_source is None \
                                 else self._get_obj_from_str(data_source)
@@ -2368,7 +2501,7 @@ class NeuroArch(object):
         if arborization is not None:
             arborization_data = get_data(q_synapse, data_types = 'ArborizationData')
             if len(arborization_data):
-                self.remove_by_rids(arborization_data.rids)
+                self._remove_by_rids(arborization_data.rids)
             self.add_synapse_arborization(synapse_to_update, arborization, data_source = data_source)
 
         if morphology is not None:
@@ -2378,19 +2511,37 @@ class NeuroArch(object):
             morphology_data = get_data(q_synapse, data_types = 'MorphologyData')
             if len(morphology_data):
                 nodes_to_remove = [m._id for m in morphology_data.nodes_as_objs if m.type in morphology_types_to_update]
-                self.remove_by_rids(nodes_to_remove)
+                self._remove_by_rids(nodes_to_remove)
             self.add_morphology(synapse_to_update, morphology, data_source = data_source)
         return True
 
     def update_Neuropil(self):
         pass
 
-    def remove_by_rids(self, rids):
+    def _remove_by_rids(self, rids):
+        """
+        Remove a record by rid.
+
+        Should only be used internally to retain the integrity of the database.
+
+        Parameters
+        ----------
+        rids : list of str
+            A list of rids to be removed.
+        """
         self._database_writeable_check()
         self.graph.client.command("""delete vertex []""".format(
                                         ','.join(rids)))
 
     def export_tags(self, filename):
+        """
+        Export all the tags to a JSON file.
+
+        Parameters
+        ----------
+        filename : str
+            The name of the JSON file to be export to.
+        """
         all_tags = self.sql_query("""select from QueryResult""").nodes_as_objs
 
         query_results = {}
@@ -2452,6 +2603,14 @@ class NeuroArch(object):
             json.dump(query_results, f)
 
     def import_tags(self, filename):
+        """
+        Import tags from a JSON file.
+
+        Parameters
+        ----------
+        filename : str
+            The name of the JSON file to import (typically was created by the export_tag)
+        """
         with open(filename) as f:
             query_results = json.load(f)
 
@@ -2517,6 +2676,14 @@ class NeuroArch(object):
         return imported_tags, not_imported
 
     def remove_tag(self, tag_name):
+        """
+        Remove a tag.
+
+        Parameters
+        ----------
+        tag_name : str
+            The name of the tag to be removed.
+        """
         try:
             tag = self.sql_query("""select from QueryResult where tag = "{}" """.format(tag_name)).nodes_as_objs[0]
         except IndexError:
@@ -2534,10 +2701,39 @@ class NeuroArch(object):
         return True
 
     def available_DataSources(self):
+        """
+        Retrieve all available DataSources.
+
+        Returns
+        -------
+        dict
+            A dictionary with the rids of DataSource nodes as keys and the DataSource properties as values.
+        """
         return {n._id: n.get_props() for n in self.find_objs('DataSource')}
 
     def create_model_from_circuit(self, model_name, model_version, graph,
                                   circuit_diagram = None, js = None):
+        """
+        Create a model of a circuit.
+
+        Parameters
+        ----------
+        model_name : str
+            The name of the model.
+        model_version : str
+            The version of the model.
+        graph : networkx.DiGraph or dict.
+            A graph specifying the models of the circuit. The graph should contain both BioNodes, e.g., Neurons, Synapses, and DesignNodes, e.g., NeuronModels, SynapseModels, linked with a 'models' relationship.
+        circuit_diagram : str (optional)
+            A str specifying the diagram in SVG format.
+        js : str (optional)
+            A str specifying the javascript submodules for interactivity.
+        
+        Returns
+        -------
+        dict
+            A dictionary mapping the original id of model nodes to the rid of the record created.
+        """
         if isinstance(graph, nx.DiGraph):
             g = graph
         elif isinstance(graph, dict) and 'nodes' in graph and 'edges' in graph:
@@ -2610,7 +2806,23 @@ class NeuroArch(object):
     def add_ExecutableCircuit(self, name, version = None, circuit_diagram = None,
                               js = None):
         """
-        Add an executable circuit
+        Add an executable circuit.
+
+        Parameters
+        ----------
+        name : str
+            The name of the circuit diagram.
+        version : str (optional)
+            The version of the circuit diagram
+        diagram : str (optional)
+            A str specifying the diagram in SVG format.
+        js : str (optional)
+            A str specifying the javascript submodules for interactivity.
+
+        Returns
+        -------
+        models.ExecutableCircuit
+            The ExecutableCircuit object created.
         """
         self._database_writeable_check()
         assert isinstance(name, str), 'name must be a str'
@@ -2630,6 +2842,25 @@ class NeuroArch(object):
         return obj
 
     def add_CircuitDiagram(self, name, diagram, version = None, js = None):
+        """
+        Add circuit diagram.
+
+        Parameters
+        ----------
+        name : str
+            The name of the circuit diagram.
+        diagram : str
+            A str specifying the diagram in SVG format.
+        version : str (optional)
+            The version of the circuit diagram
+        js : str (optional)
+            A str specifying the javascript submodules for interactivity.
+        
+        Returns
+        -------
+        models.CircuitDiagram
+            The created CircuitDiagram object.
+        """
         self._database_writeable_check()
         assert isinstance(name, str), 'name must be a str'
         assert isinstance(diagram, str), 'name must be a str'
@@ -2648,6 +2879,23 @@ class NeuroArch(object):
         return obj
 
     def add_LPU(self, neuropil, circuit_model, version = None):
+        """
+        Add an LPU.
+
+        Parameters
+        ----------
+        neuropil : str or models.neuropil
+            The neuropil that the created LPU models.
+        circuit_model : models.ExecutableCircuit or str
+            The ExecutableCircuit model that should own this LPU.
+        version : str (optional)
+            The version of the LPU.
+        
+        Returns
+        -------
+        models.LPU
+            the created LPU node
+        """
         self._database_writeable_check()
         neuropil = self._get_obj_from_str(neuropil)
         if not isinstance(neuropil, models.Neuropil):
@@ -2673,6 +2921,25 @@ class NeuroArch(object):
         pass
 
     def add_NeuronModel(self, neuron, model_cls, lpu, **params):
+        """
+        Create a NeuronModel node.
+
+        Parameters
+        ----------
+        neuron : models.Neuron or str
+            An Neuron object or its rid (str) that the NeuronModel models.
+        model_cls : str
+            The subclass of the model
+        lpu : neuronarch.models.LPU
+            The LPU that owns the neuron model.
+        params : dict
+            parameters of the neuron model.
+
+        Returns
+        -------
+        models.NeuronModel
+            The created NeuronModel object.
+        """
         self._database_writeable_check()
         neuron = self._get_obj_from_str(neuron)
         assert isinstance(neuron, models.Neuron), \
@@ -2697,6 +2964,23 @@ class NeuroArch(object):
         return neuron_model_obj
 
     def add_Port(self, neuron, lpu, selector = None):
+        """
+        Create a Port node.
+
+        Parameters
+        ----------
+        neuron : models.NeuronModel or str
+            An Neuron object or its rid (str) that the port connect to.
+        lpu : neuronarch.models.LPU
+            The LPU that owns the port.
+        selector : str (optional)
+            The selector of the port. See neurokernel.plsel.Selector.
+
+        Returns
+        -------
+        models.Port
+            The created Port object.
+        """
         self._database_writeable_check()
         neuron = self._get_obj_from_str(neuron)
         if not isinstance(neuron, models.NeuronModel):
@@ -2717,6 +3001,29 @@ class NeuroArch(object):
                          pre_neuron,
                          post_neuron,
                          lpu, **params):
+        """
+        Create a NeuronModel node.
+
+        Parameters
+        ----------
+        synapse : models.Synapse or str
+            A Synapse object or its rid (str) that the SynapseModel models.
+        model_cls : str
+            The subclass of the model
+        pre_neuron : models.Neuron or str
+            The Neuron object or its rid (str) that is presynaptic to the synapse.
+        post_neuron : models.Neuron or str
+            The Neuron object or its rid (str) that is postsynaptic to the synapse.
+        lpu : neuronarch.models.LPU
+            The LPU that owns the synapse model.
+        params : dict
+            parameters of the neuron model.
+
+        Returns
+        -------
+        models.SynapseModel
+            The created SynapseModel object.
+        """
         # make sure the the link from post to synapse is also added for synapses like NMDA
         self._database_writeable_check()
         synapse = self._get_obj_from_str(synapse)
@@ -2767,7 +3074,7 @@ def outgoing_synapses(q, N = None, rel='>',include_inferred=True):
 
     Parameters
     ----------
-    q: neuroarch.query.QueryWrapper
+    q: query.QueryWrapper
         The query to search for outgoing synapses
     N: int or None
         Filter for number of synapses (default: None, equivalent to 0)
@@ -2779,7 +3086,8 @@ def outgoing_synapses(q, N = None, rel='>',include_inferred=True):
 
     Returns
     -------
-    neuroarch.query.QueryWrapper: containing the outgoing synapses.
+    query.QueryWrapper
+        containing the outgoing synapses.
 
     Example
     -------
@@ -2801,7 +3109,7 @@ def incoming_synapses(q, N=None, rel='>',include_inferred=True):
 
     Parameters
     ----------
-    q: neuroarch.query.QueryWrapper
+    q: query.QueryWrapper
         The query to search for outgoing synapses
     N: int or None
         Filter for number of synapses (default: None, equivalent to 0)
@@ -2813,7 +3121,8 @@ def incoming_synapses(q, N=None, rel='>',include_inferred=True):
 
     Returns
     -------
-    neuroarch.query.QueryWrapper: containing the input synapses.
+    query.QueryWrapper
+        containing the input synapses.
 
     Example
     -------
@@ -2834,14 +3143,15 @@ def get_data(q, data_types = None):
 
     Parameters
     ----------
-    q: neuroarch.query.QueryWrapper
+    q: query.QueryWrapper
         The query to search for outgoing synapses
     data_types: list or None
         The types of data to be retrieved (default: None, equivalent to all data types)
 
     Returns
     -------
-    neuroarch.query.QueryWrapper: containing the data.
+    query.QueryWrapper
+        containing the data.
 
     Example
     -------
@@ -2864,8 +3174,17 @@ def get_data(q, data_types = None):
 def load_swc(file_name):
     """
     Load an SWC file into a DataFrame.
-    """
 
+    Parameters
+    ----------
+    filename : str
+        The name of the SWC file.
+
+    Returns
+    -------
+    pandas.DataFrame
+        a dataframe having the fields sample, identifier, x, y, z, r and parent.
+    """
     df = pd.read_csv(file_name, sep = ' ', header=None, comment='#', index_col = False,
                      names=['sample', 'identifier', 'x', 'y', 'z', 'r', 'parent'],
                      skipinitialspace=True)

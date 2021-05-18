@@ -2,7 +2,7 @@
 
 License
 =======
-Copyright (c) 2014-2016, Lev E. Givon, Nikul H. Ukani
+Copyright (c) 2014-2021, Lev E. Givon, Nikul H. Ukani, Yiyin Zhou
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

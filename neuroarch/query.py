@@ -64,30 +64,20 @@ class QueryWrapper(object):
         are the record IDs and the values the records.
     execute : bool
         Whether to execute the query immediately upon instantiation.
+    executed : bool
+        Whether the query has been executed.
     edges : bool
         If True, extract edges between requested nodes.
+    debug : bool
+        Run in debug mode. If true, will print execution time.
     """
 
     @class_method_timer
     def __init__(self, graph, query, init_nodes=set(), execute=True, executed = False,
-                 edges=False, disp_query=None, debug = False):
+                 edges=False, debug = False):
         assert isinstance(graph, Graph)
         self._graph = graph
-        '''
-        if disp_query:
-            self._disp_query = disp_query
-        elif isinstance(query, QueryString):
-            self._disp_query = query.str
-        else:
-            def e(q):
-                if isinstance(q, QueryString):
-                    result =  q.str
-                else:
-                    result = (q[0], e(q[1]), e(q[2]))
-                return result
-            s = '\n'+pprint.pformat(e(query), indent=2,
-                                    width=60, depth=None)
-        '''
+
         if isinstance(query, QueryString):
             self._query = query
         else:
