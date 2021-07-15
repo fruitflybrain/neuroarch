@@ -1405,6 +1405,7 @@ class NeuroArch(object):
             if isinstance(obj, (models.Neuron, models.Synapse)):
                 content['uname'] = obj.uname
             if data['type'] == 'swc':
+                has_confidence = False
                 if 'filename' in data:
                     df = load_swc(data['filename'])
                     x = [round(i, 2) for i in (df['x']*data['scale']).tolist()]
@@ -1414,6 +1415,9 @@ class NeuroArch(object):
                     parent = df['parent'].tolist()
                     identifier = df['identifier'].tolist()
                     sample = df['sample'].tolist()
+                    if 'confidence' in df:
+                        confidence = df['confidence'].tolist()
+                        has_confidence = True
                 else:
                     x = data['x']
                     y = data['y']
@@ -1422,6 +1426,9 @@ class NeuroArch(object):
                     parent = data['parent']
                     identifier = data['identifier']
                     sample = data['sample']
+                    if 'confidence' in data:
+                        confidence = data['confidence']
+                        has_confidence = True
                 content['x'] = x
                 content['y'] = y
                 content['z'] = z
@@ -1429,6 +1436,8 @@ class NeuroArch(object):
                 content['parent'] = parent
                 content['identifier'] = identifier
                 content['sample'] = sample
+                if has_confidence:
+                    content['confidence'] = confidence
                 morph_obj = self.graph.element_from_record(
                                 self.graph.client.command(
                                     'create vertex MorphologyData content {}'.format(
