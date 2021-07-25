@@ -1477,7 +1477,7 @@ class NeuroArch(object):
             else:
                 raise TypeError('Morphology type {} unknown'.format(data['type']))
             self.graph.HasData.create(obj, morph_obj)
-            self.graph.Owns.create(data_source, morph_obj)
+            self.graph.Owns.create(connect_DataSource, morph_obj)
 
     def add_neuron_arborization(self, neuron, arborization, data_source = None):
         """
