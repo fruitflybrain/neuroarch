@@ -1214,42 +1214,45 @@ class QueryWrapper(object):
         return self.from_rids(self._graph, *res)
 
     @class_method_timer
-    def post_synaptic_neurons(self, N=None, rel='>', include_inferred=True, high_prob = False):
+    def post_synaptic_neurons(self, N=None, rel='>', include_inferred=True, include_fragments = False, high_prob = False):
         # N represents number of synapses
         #    if N is none, will return all post synaptic neurons
         #    else, it will only return postsynaptic neurons where the number of synapses
         #    satisfy <rel> N. See below for rel
         # rel can be '>'(default),'<','='
         synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
+        neuron_classes = ['Neuron', 'NeuronFragment'] if include_fragments else 'Neuron'
         if N:
-            return self.gen_traversal_out(['SendsTo', synapse_classes, {'NHP' if high_prob else 'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
+            return self.gen_traversal_out(['SendsTo', synapse_classes, {'NHP' if high_prob else 'N':(rel,N)}],['SendsTo',neuron_classes], min_depth=2)
         else:
             if high_prob:
-                return self.gen_traversal_out(['SendsTo', synapse_classes, {'NHP':(rel,0)}],['SendsTo','Neuron'], min_depth=2)
+                return self.gen_traversal_out(['SendsTo', synapse_classes, {'NHP':(rel,0)}],['SendsTo',neuron_classes], min_depth=2)
             else:
-                return self.gen_traversal_out(['SendsTo', synapse_classes],['SendsTo','Neuron'], min_depth=2)
+                return self.gen_traversal_out(['SendsTo', synapse_classes],['SendsTo',neuron_classes], min_depth=2)
 
     @class_method_timer
-    def pre_synaptic_neurons(self, N=None, rel='>', include_inferred=True, high_prob = False):
+    def pre_synaptic_neurons(self, N=None, rel='>', include_inferred=True, include_fragments = False, high_prob = False):
         # N represents number of synapses
         #    if N is none, will return all post synaptic neurons
         #    else, it will only return postsynaptic neurons where the number of synapses
         #    satisfy <rel> N. See below for rel
         # rel can be '>'(default),'<','='
         synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
+        neuron_classes = ['Neuron', 'NeuronFragment'] if include_fragments else 'Neuron'
         if N:
-            return self.gen_traversal_in(['SendsTo', synapse_classes,{'NHP' if high_prob else 'N':(rel,N)}],['SendsTo','Neuron'], min_depth=2)
+            return self.gen_traversal_in(['SendsTo', synapse_classes,{'NHP' if high_prob else 'N':(rel,N)}],['SendsTo',neuron_classes], min_depth=2)
         else:
             if high_prob:
-                return self.gen_traversal_in(['SendsTo', synapse_classes, {'NHP':(rel,0)}],['SendsTo','Neuron'], min_depth=2)
+                return self.gen_traversal_in(['SendsTo', synapse_classes, {'NHP':(rel,0)}],['SendsTo',neuron_classes], min_depth=2)
             else:
-                return self.gen_traversal_in(['SendsTo', synapse_classes],['SendsTo','Neuron'], min_depth=2)
+                return self.gen_traversal_in(['SendsTo', synapse_classes],['SendsTo',neuron_classes], min_depth=2)
 
     @class_method_timer
-    def pre_synaptic_neurons_with_synapse_count(self, N=None, rel='>', include_inferred=True, high_prob = False):
+    def pre_synaptic_neurons_with_synapse_count(self, N=None, rel='>', include_inferred=True, include_fragments = False, high_prob = False):
         # only work with 1 neuron for now
         assert len(self.nodes) <= 1
         synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
+        neuron_classes = 'NeuronAndFragment' if include_fragments else 'Neuron'
         if N:
             pre_syn = self.gen_traversal_in(['SendsTo', synapse_classes, {'NHP' if high_prob else 'N':(rel,N)}], min_depth=1)
         else:

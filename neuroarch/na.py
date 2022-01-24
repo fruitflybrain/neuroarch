@@ -266,7 +266,7 @@ class NeuroArch(object):
         try:
             return cache[name]
         except KeyError:
-            if cls in ['Neuron', 'Synapse']:
+            if cls in ['Neuron', 'NeuronFragment', 'NeuronAndFragment', 'Synapse', 'InferredSynapse']:
                 q = self._find(cls, data_source, uname = name)
             else:
                 q = self._find(cls, data_source, name = name)
@@ -601,7 +601,7 @@ class NeuroArch(object):
         #                         """{cls} {name} already exists as a synonym of {cls} {formalname} under Neuropil {ds}""".format(
         #                         cls = cls, name = attr['name'], formalname = obj.name,
         #                         ds = unique_in.name))
-        elif cls in ['Neuron']:
+        elif cls in ['Neuron', 'NeuronFragment']:
             # TODO: synonyms are not checked against existing names and synonyms
             if not isinstance(unique_in, models.DataSource):
                 raise TypeError('To check the uniqueness of a {} instance, unique_in must be a DataSource object'.format(cls))
@@ -1308,11 +1308,151 @@ class NeuroArch(object):
         
         neuron = batch['${}'.format(neuron_name)]
         batch.commit(20)
-        self.set('Neuron', name, neuron, data_source = connect_DataSource)
+        self.set('Neuron', uname, neuron, data_source = connect_DataSource)
 
         if neurotransmitters is not None:
             self.add_neurotransmitter(neuron, neurotransmitters,
                                       data_sources = neurotransmitters_datasources if neurotransmitters_datasources is not None else data_source)
+        if morphology is not None:
+            self.add_morphology(neuron, morphology, data_source = connect_DataSource)
+        return neuron
+
+    def add_NeuronFragment(self, uname,
+                           name,
+                           referenceId = None,
+                           info = None,
+                           morphology = None,
+                           arborization = None,
+                           data_source = None):
+        """
+        Create a NeuronFragment Record and link it to the related node types.
+
+        Parameters
+        ----------
+        uname : str
+            A unqiue name assigned to the neuron, must be unique within the DataSource
+        name : str
+            Name of the neuron, typically the cell type.
+        referenceId : str (optional)
+            Unique identifier in the original data source
+        info : dict (optional)
+            Additional information about the neuron, values must be str
+        morphology : list of dict (optional)
+            Each dict in the list defines a type of morphology of the neuron.
+            Must be loaded from a file.
+            The dict must include the following key to indicate the type of morphology:
+                {'type': 'swc'/'obj'/...}
+            Additional keys must be provides, either 'filename' with value
+            indicating the file to be read for the morphology,
+            or a full definition of the morphology according the schema.
+            For swc, required fields are ['sample', 'identifier', 'x', 'y, 'z', 'r', 'parent'].
+            More formats pending implementation.
+        arborization : list of dict (optional)
+            A list of dictionaries define the arborization pattern of
+            the neuron in neuropils, subregions, and tracts, if applicable, with
+            {'type': 'neuropil' or 'subregion' or 'tract',
+             'dendrites': {'EB': 20, 'FB': 2},
+             'axons': {'NO': 10, 'MB': 22}}
+            Name of the regions must already be present in the database.
+        data_source : models.DataSource (optional)
+            The datasource. If not specified, default DataSource will be used.
+
+        Returns
+        -------
+        neuron : models.NeuronFragment
+            Created NeuronFragment object
+        """
+        assert isinstance(uname, str), 'uname must be of str type'
+        assert isinstance(name, str), 'name must be of str type'
+        self._database_writeable_check()
+        connect_DataSource = self._default_DataSource if data_source is None \
+                                else self._get_obj_from_str(data_source)
+        if connect_DataSource is None:
+            raise TypeError('Default DataSource is missing.')
+        self._uniqueness_check('NeuronFragment', unique_in = connect_DataSource,
+                               name = uname)
+        batch = self.graph.batch()
+
+        neuron_name = _to_var_name(uname)
+        neuron_info = {'uname': uname, 'name': name}
+        if isinstance(referenceId, str):
+            neuron_info['referenceId'] = referenceId
+        else:
+            if referenceId is not None:
+                raise TypeError('referenceId must be of str type')
+        if isinstance(info, dict) and all(isinstance(v, str) for v in info.values()):
+            neuron_info['info'] = info
+        else:
+            if info is not None:
+                raise TypeError('info must be a dict with str values')
+        
+        batch[neuron_name] = batch.Neurons.create(**neuron_info)
+
+        self.link_with_batch(batch, connect_DataSource, batch[:neuron_name],
+                             'Owns')
+
+        if arborization is not None:
+            if not isinstance(arborization, list):
+                arborization = [arborization]
+            dendrites = {}
+            axons = {}
+            local_neuron = None
+            arb_name = 'arb{}'.format(neuron_name)
+            for data in arborization:
+                if data['type'] in ['neuropil', 'subregion', 'tract']:
+                    arborization_type = data['type'].capitalize()
+                    # region_arb = _to_var_name(
+                    #     '{}Arb{}'.format(arborization_type, name))
+                    if isinstance(data['dendrites'], dict) and \
+                            all(isinstance(k, str) and isinstance(v, int) for k, v in data['dendrites'].items()):
+                        pass
+                    else:
+                        raise ValueError('dendrites in the {} arborization data not understood.'.format(data['type']))
+                    if isinstance(data['axons'], dict) and \
+                            all(isinstance(k, str) and isinstance(v, int) for k, v in data['axons'].items()):
+                        pass
+                    else:
+                        raise ValueError('axons in the {} arborization data not understood.'.format(data['type']))
+
+                    # create the ArborizesIn edge first so the existence of neurpils/subregions/tracts are automatically checked.
+                    arborized_regions = {n: [] for n in set(list(data['dendrites'].keys()) + list(data['axons'].keys()))}
+                    for n in data['dendrites']:
+                        arborized_regions[n].append('s')
+                    for n in data['axons']:
+                        arborized_regions[n].append('b')
+                    for n, v in arborized_regions.items():
+                        self.link_with_batch(batch, batch[:neuron_name],
+                                             self.get(arborization_type, n, connect_DataSource),
+                                             'ArborizesIn',
+                                             kind = v,
+                                             N_dendrites = data['dendrites'].get(n, 0),
+                                             N_axons = data['axons'].get(n, 0))
+                    dendrites.update(data['dendrites'])
+                    axons.update(data['axons'])
+                    if data['type'] == 'neuropil':
+                        if len(arborized_regions) == 1:
+                            local_neuron = list(arborized_regions.keys())[0]
+                else:
+                    raise TypeError('Arborization data type of not understood')
+            # create the ArborizationData node
+            batch[arb_name] = batch.ArborizationDatas.create(name = name, uname = uname,
+                                                             dendrites = dendrites,
+                                                             axons = axons)
+            self.link_with_batch(batch, batch[:neuron_name],
+                                 batch[:arb_name], 'HasData')
+            self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
+            if local_neuron is not None:
+                self.link_with_batch(batch,
+                                     self.get('Neuropil',
+                                              local_neuron,
+                                              connect_DataSource),
+                                     batch[:neuron_name],
+                                     'Owns')
+        
+        neuron = batch['${}'.format(neuron_name)]
+        batch.commit(20)
+        self.set('NeuronFragment', uname, neuron, data_source = connect_DataSource)
+
         if morphology is not None:
             self.add_morphology(neuron, morphology, data_source = connect_DataSource)
         return neuron
@@ -1582,10 +1722,10 @@ class NeuroArch(object):
 
         parameters
         ----------
-        pre_neuron : str or models.Neuron
+        pre_neuron : str or models.NeuroAndFragment
             The neuron that is presynaptic in the synapse.
             If str, must be the uname or rid of the presynaptic neuron.
-        post_neuron : str or models.Neuron
+        post_neuron : str or models.NeuroAndFragment
             The neuron that is postsynaptic in the synapse.
             If str, must be the uname or rid of the postsynaptic neuron.
         N : int (optional)
@@ -1629,22 +1769,22 @@ class NeuroArch(object):
 
         pre_neuron = self._get_obj_from_str(pre_neuron)
         post_neuron = self._get_obj_from_str(post_neuron)
-        if isinstance(pre_neuron, models.Neuron):
+        if isinstance(pre_neuron, models.NeuroAndFragment):
             pre_neuron_obj = pre_neuron
             pre_neuron_name = pre_neuron.name
         elif isinstance(pre_neuron, str):
             pre_neuron_name = pre_neuron
-            pre_neuron_obj = self.get('Neuron', pre_neuron_name,
+            pre_neuron_obj = self.get('NeuroAndFragment', pre_neuron_name,
                                       connect_DataSource)
         else:
             raise TypeError('Parameter pre_neuron must be either a str or a Neuron object.')
 
-        if isinstance(post_neuron, models.Neuron):
+        if isinstance(post_neuron, models.NeuroAndFragment):
             post_neuron_obj = post_neuron
             post_neuron_name = post_neuron.name
         elif isinstance(post_neuron, str):
             post_neuron_name = post_neuron
-            post_neuron_obj = self.get('Neuron', post_neuron_name,
+            post_neuron_obj = self.get('NeuroAndFragment', post_neuron_name,
                                        connect_DataSource)
         else:
             raise TypeError('Parameter post_neuron must be either a str or a Neuron object.')

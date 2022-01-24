@@ -199,7 +199,11 @@ class Column(Circuit):
     element_plural = 'Columns'
     name = String(nullable=False, unique=False, indexed=True)
 
-class Neuron(BioNode):
+class NeuronAndFragment(BioNode):
+    element_type = 'NeuronAndFragment'
+    element_plural = 'NeuronAndFragments'
+
+class Neuron(NeuronAndFragment):
     element_type = 'Neuron'
     element_plural = 'Neurons'
     name = String(nullable=False, unique=False, indexed=True)
@@ -207,6 +211,15 @@ class Neuron(BioNode):
     label = String(nullable=True, unique=False, indexed=True)
     uname = String(nullable=True, unique=False, indexed=True)
     synonyms = EmbeddedList(linked_to=String(), nullable=True, unique=False, indexed=True)
+    referenceId = String(nullable=True, unique=False, indexed=True)
+    info = EmbeddedMap(nullable=True, unique=False, indexed=True)
+
+class NeuronFragment(NeuronAndFragment):
+    element_type = 'NeuronFragment'
+    element_plural = 'NeuronFragments'
+    name = String(nullable=False, unique=False, indexed=True)
+    label = String(nullable=True, unique=False, indexed=True)
+    uname = String(nullable=True, unique=False, indexed=True)
     referenceId = String(nullable=True, unique=False, indexed=True)
     info = EmbeddedMap(nullable=True, unique=False, indexed=True)
 
