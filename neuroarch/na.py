@@ -1386,7 +1386,7 @@ class NeuroArch(object):
             if info is not None:
                 raise TypeError('info must be a dict with str values')
         
-        batch[neuron_name] = batch.Neurons.create(**neuron_info)
+        batch[neuron_name] = batch.NeuronFragments.create(**neuron_info)
 
         self.link_with_batch(batch, connect_DataSource, batch[:neuron_name],
                              'Owns')
@@ -1769,22 +1769,22 @@ class NeuroArch(object):
 
         pre_neuron = self._get_obj_from_str(pre_neuron)
         post_neuron = self._get_obj_from_str(post_neuron)
-        if isinstance(pre_neuron, models.NeuroAndFragment):
+        if isinstance(pre_neuron, models.NeuronAndFragment):
             pre_neuron_obj = pre_neuron
             pre_neuron_name = pre_neuron.name
         elif isinstance(pre_neuron, str):
             pre_neuron_name = pre_neuron
-            pre_neuron_obj = self.get('NeuroAndFragment', pre_neuron_name,
+            pre_neuron_obj = self.get('NeuronAndFragment', pre_neuron_name,
                                       connect_DataSource)
         else:
             raise TypeError('Parameter pre_neuron must be either a str or a Neuron object.')
 
-        if isinstance(post_neuron, models.NeuroAndFragment):
+        if isinstance(post_neuron, models.NeuronAndFragment):
             post_neuron_obj = post_neuron
             post_neuron_name = post_neuron.name
         elif isinstance(post_neuron, str):
             post_neuron_name = post_neuron
-            post_neuron_obj = self.get('NeuroAndFragment', post_neuron_name,
+            post_neuron_obj = self.get('NeuronAndFragment', post_neuron_name,
                                        connect_DataSource)
         else:
             raise TypeError('Parameter post_neuron must be either a str or a Neuron object.')
