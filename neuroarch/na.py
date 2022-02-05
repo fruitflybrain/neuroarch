@@ -37,7 +37,7 @@ def replace_special_char(text):
 
 
 def connect(host, db_name, port = 2424, user = 'admin', password = 'admin',
-            initial_drop = False, serialization_type = OrientSerialization.CSV,
+            initial_drop = False, serialization_type = OrientSerialization.Binary,
             new_models = False):
     # graph = Graph(Config.from_url(url, user, password, initial_drop))
 
@@ -154,76 +154,72 @@ class NeuroArch(object):
         """
     def __init__(self, db_name, host = 'localhost', port = 2424,
                  user = 'root', password = 'root', mode = 'r',
-                 new_models = False, debug = False):
+                 new_models = False, debug = False, serialization_type = 'Binary'):
         self._mode = mode
         self._db_name = db_name
         self._host = host
         self._port = port
         self._user = user
         self._password = password
-        self.connect()
-
-        if mode == 'r':
-            initial_drop = False
-            self._allow_write = False
-            serialization_type = OrientSerialization.Binary
-        elif mode == 'o':
-            initial_drop = True
-            self._allow_write = True
-            serialization_type = OrientSerialization.CSV
-        elif mode == 'w':
-            initial_drop = False
-            self._allow_write = True
-            serialization_type = OrientSerialization.CSV
+        if serialization_type == 'Binary':
+            self._serialization_type = OrientSerialization.Binary
+        elif serialization_type == 'CSV':
+            self._serialization_type = OrientSerialization.CSV
         else:
-            raise ValueError("""Database mode must be either read ('r'),
-                              write ('w'), or overwrite ('o').""")
-        self.graph = connect(host, db_name, port = port,
-                             user = user, password = password,
-                             initial_drop = initial_drop,
-                             serialization_type = serialization_type,
-                             new_models = new_models)
+            self._serialization_type = None
+        self.connect(new_models)
+
         self._debug = debug
         self._default_DataSource = None
-        # self._cache = {'DataSource': {},
-        #                'Neuropil': {},
-        #                'Neuron': {},
-        #                'Synapse': {},
-        #                'Subsystem': {},
-        #                'Tract': {},
-        #                'Subregion': {}
-        #                }
         self._cache = {}
         self._check = True
 
-    def connect(self):
+    def connect(self, new_models = False):
         """Connect to the database specified during instantiation"""
         if self._mode == 'r':
             initial_drop = False
             self._allow_write = False
-            serialization_type = OrientSerialization.Binary
+            if self._serialization_type is None:
+                serialization_type = OrientSerialization.Binary
+            else:
+                serialization_type = self._serialization_type
         elif self._mode == 'o':
             initial_drop = True
             self._allow_write = True
-            serialization_type = OrientSerialization.CSV
+            if self._serialization_type is None:
+                serialization_type = OrientSerialization.Binary
+            else:
+                serialization_type = self._serialization_type
         elif self._mode == 'w':
             initial_drop = False
             self._allow_write = True
-            serialization_type = OrientSerialization.CSV
+            if self._serialization_type is None:
+                serialization_type = OrientSerialization.Binary
+            else:
+                serialization_type = self._serialization_type
         else:
             raise ValueError("""Database mode must be either read ('r'),
                               write ('w'), or overwrite ('o').""")
         self.graph = connect(self._host, self._db_name, port = self._port,
                              user = self._user, password = self._password,
                              initial_drop = initial_drop,
-                             serialization_type = serialization_type)
+                             serialization_type = serialization_type,
+                             new_models = new_models)
+        if initial_drop:
+            self.reconnect()
 
     def reconnect(self):
         """Reconnect to the database specified during instantiation"""
         if self._mode == 'r':
-            serialization_type = OrientSerialization.Binary
+            if self._serialization_type is None:
+                serialization_type = OrientSerialization.Binary
+            else:
+                serialization_type = self._serialization_type
         else:
-            serialization_type = OrientSerialization.CSV
+            if self._serialization_type is None:
+                serialization_type = OrientSerialization.Binary
+            else:
+                serialization_type = self._serialization_type
         self.graph = connect(self._host, self._db_name, port = self._port,
                              user = self._user, password = self._password,
                              initial_drop = False,
@@ -231,7 +227,7 @@ class NeuroArch(object):
 
     def _get_obj_from_str(self, obj):
         if isinstance(obj, str) and rid_pattern.fullmatch(obj) is not None:
-            return QueryWrapper.from_rids(self.graph, obj).nodes_as_objs[0]
+            return QueryWrapper.from_rids(self.graph, obj).get_nodes()[0]
         else:
             return obj
 
@@ -271,7 +267,7 @@ class NeuroArch(object):
             else:
                 q = self._find(cls, data_source, name = name)
             if len(q) == 1:
-                obj = q.nodes_as_objs[0]
+                obj = q.get_nodes()[0]
                 if data_source is None:
                     tmp = q.owned_by(cls = 'DataSource', cols = '@rid')
                     if len(tmp) == 1:
@@ -499,7 +495,7 @@ class NeuroArch(object):
                 """select from Species where (name = "{name}" or "{name}" in synonyms) and stage = "{stage}"  and sex = "{sex}" """.format(
                     name = attr['name'], stage = attr['stage'], sex = attr['sex']))
             if len(tmp):
-                objs = tmp.nodes_as_objs
+                objs = tmp.get_nodes()
                 if attr['name'] in [obj.name for obj in objs]:
                     raise NodeAlreadyExistError("""Species {name} at {stage} stage ({sex}) already exists with rid = {rid}""".format(
                         name = attr['name'], stage = attr['stage'], sex = attr['sex'], rid = objs[0]._id))
@@ -521,7 +517,7 @@ class NeuroArch(object):
                 """select from Neurotransmitter where name = "{name}" or "{name}" in synonyms""".format(
                     name = attr['name']))
             if len(tmp):
-                objs = tmp.nodes_as_objs
+                objs = tmp.get_nodes()
                 if attr['name'] in [obj.name for obj in objs]:
                     raise NodeAlreadyExistError("""Neurotransmitter {name} already exists with rid = {rid}""".format(
                         name = attr['name'], rid = objs[0]._id))
@@ -540,7 +536,7 @@ class NeuroArch(object):
                 """select from (select from {cls} where name = "{name}" or "{name}" in synonyms) let $q = (select from (select expand($parent.$parent.current.in('Owns'))) where @class='{ucls}' and @rid = {rid}) where $q.size() = 1""".format(
                     rid = unique_in._id, cls = cls, name = attr['name'], ucls = unique_in.element_type))
             if len(tmp):
-                objs = tmp.nodes_as_objs
+                objs = tmp.get_nodes()
                 if attr['name'] in [obj.name for obj in objs]:
                     raise NodeAlreadyExistError("""{cls} {name} already exists under DataSource {ds} version {version}, rid = {rid}""".format(
                         cls = cls, name = attr['name'],
@@ -567,7 +563,7 @@ class NeuroArch(object):
             #             ds = datasource.name,
             #             version = datasource.version))
             #     else:
-            #         all_synonym_objs = (tmp - tmp1).nodes_as_objs
+            #         all_synonym_objs = (tmp - tmp1).get_nodes()
             #         for obj in objs:
             #             if len(QueryWrapper.from_rids(obj._id).has(cls = 'DataSource').has(rid = datasource)):
             #                 raise NodeAlreadyExistError(
@@ -589,7 +585,7 @@ class NeuroArch(object):
         #         """select from (select from {cls} where name = "{name}" or "{name}" in synonyms) let $q = (select from (select expand($parent.$parent.current.in('Owns'))) where @class='ucls' and @rid = {rid}) where $q.size() = 1""".format(
         #             rid = unique_in._id, cls = cls, name = attr['name'], ucls = unique_in.element_type))
         #     if len(tmp):
-        #         objs = tmp.nodes_as_objs
+        #         objs = tmp.get_nodes()
         #         if attr['name'] in [obj.name for obj in objs]:
         #             raise NodeAlreadyExistError("""{cls} {name} already exists under Neuropil {ds}""".format(
         #                 cls = cls, name = attr['name'],
@@ -609,7 +605,7 @@ class NeuroArch(object):
                 """select from (select from {cls} where uname = "{name}") let $q = (select from (select expand($parent.$parent.current.in('Owns'))) where @class='{ucls}' and @rid = {rid}) where $q.size() = 1""".format(
                     rid = unique_in._id, cls = cls, name = attr['name'], ucls = unique_in.element_type))
             if len(tmp):
-                objs = tmp.nodes_as_objs
+                objs = tmp.get_nodes()
                 raise NodeAlreadyExistError("""{cls} {name} already exists with rid = {rid}, under DataSource {ds} version {version}""".format(
                     cls = cls, name = attr['name'], rid = objs[0]._id,
                     ds = unique_in.name,
@@ -621,7 +617,7 @@ class NeuroArch(object):
                 """select from (select from {cls} where name = "{name}") let $q = (select from (select expand($parent.$parent.current.in('Owns'))) where @class='{ucls}' and @rid = {rid}) where $q.size() = 1""".format(
                     rid = unique_in._id, cls = cls, name = attr['name'], ucls = unique_in.element_type))
             if len(tmp):
-                objs = tmp.nodes_as_objs
+                objs = tmp.get_nodes()
                 if attr['name'] in [obj.name for obj in objs]:
                     raise NodeAlreadyExistError("""{cls} {name} already exists under DataSource {ds} version {version}, rid = {rid}""".format(
                         cls = cls, name = attr['name'],
@@ -634,7 +630,7 @@ class NeuroArch(object):
                 """select from (select expand(out(HasData)) from {rid}) where @class = 'ArborizationData' """.format(rid = unique_in._id))
             if len(tmp):
                 raise NodeAlreadyExistError("""ArborizationData already exists for {node} {uname} with rid = {rid}. Use NeuroArch.update_{node}_arborization to update the record""".format(
-                    node = unique_in.element_type.lower(), rid = tmp.nodes_as_objs[0]._id, uname = unique_in.uname))
+                    node = unique_in.element_type.lower(), rid = tmp.get_nodes()[0]._id, uname = unique_in.uname))
         else:
             raise TypeError('Model type not understood.')
         return True
@@ -762,7 +758,7 @@ class NeuroArch(object):
                     """select from Species where (name = "{name}" or "{name}" in synonyms) and stage = "{stage}" """.format(
                         name = species['name'], stage = species['stage']))
                 if len(tmp) == 1:
-                    species_obj = tmp.nodes_as_objs[0]
+                    species_obj = tmp.get_nodes()[0]
                 elif len(tmp) > 1: # most likely will not occur
                     raise ValueError(
                         'Multiple Species nodes with name = {name} and stage = {stage} exists'.format(
@@ -2183,7 +2179,7 @@ class NeuroArch(object):
                     Warning('Neuron {} not found in the database, no need to remove'.format(neuron_name))
                 except DuplicateNodeError:
                     Warning('Neuron {} found to have more than 1 copy, removing all.')
-                    objs = self._find('Neuron', data_source, uname = neuron_name).nodes_as_objs
+                    objs = self._find('Neuron', data_source, uname = neuron_name).get_nodes()
                     neuron_objs.extend(objs)
                 except:
                     raise
@@ -2250,13 +2246,13 @@ class NeuroArch(object):
                         Warning('synapse/InferredSynapse {} not found in the database, no need to remove'.format(synapse_name))
                     except DuplicateNodeError:
                         Warning('Synapse {} found to have more than 1 copy, removing all.')
-                        objs = self._find('InferredSynapse', data_source, uname = synapse_name).nodes_as_objs
+                        objs = self._find('InferredSynapse', data_source, uname = synapse_name).get_nodes()
                         synapse_objs.extend(objs)
                     except:
                         raise
                 except DuplicateNodeError:
                     Warning('Synpase {} found to have more than 1 copy, removing all.')
-                    objs = self._find('Synpase', data_source, uname = synapse_name).nodes_as_objs
+                    objs = self._find('Synpase', data_source, uname = synapse_name).get_nodes()
                     synapse_objs.extend(objs)
                 except:
                     raise
@@ -2319,7 +2315,7 @@ class NeuroArch(object):
         pre_q = QueryWrapper.from_objs(self.graph, pre_objs)
         post_q = QueryWrapper.from_objs(self.graph, post_neuron_objs)
         synapses = outgoing_synapses(pre_q) & incoming_synapses(post_q)
-        self.remove_synapses(synapses.nodes_as_objs, safe = False)
+        self.remove_synapses(synapses.get_nodes(), safe = False)
 
     def remove_Neuropil(self):
         pass
@@ -2466,7 +2462,7 @@ class NeuroArch(object):
             if update_chain:
                 arborization_data = get_data(q_neuron, data_types = 'ArborizationData')
                 if len(arborization_data):
-                    node = arborization_data.nodes_as_objs[0]
+                    node = arborization_data.get_nodes()[0]
                     props = node.get_props()
                     update_props = {}
                     if 'name' in props:
@@ -2483,7 +2479,7 @@ class NeuroArch(object):
         else:
             if update_chain:
                 neurotransmitter_data = get_data(q_neuron, data_types = 'NeurotransmitterData')
-                for node in neurotransmitter_data.nodes_as_objs:
+                for node in neurotransmitter_data.get_nodes():
                     props = node.get_props()
                     update_props = {}
                     if 'name' in props:
@@ -2498,13 +2494,13 @@ class NeuroArch(object):
             morphology_types_to_update = [m['type'] for m in morphology]
             morphology_data = get_data(q_neuron, data_types = 'MorphologyData')
             if len(morphology_data):
-                nodes_to_remove = [m._id for m in morphology_data.nodes_as_objs if m.type in morphology_types_to_update]
+                nodes_to_remove = [m._id for m in morphology_data.get_nodes() if m.type in morphology_types_to_update]
                 self._remove_by_rids(nodes_to_remove)
             self.add_morphology(neuron_to_update, morphology, data_source = data_source)
         else:
             if update_chain:
                 morphology_data = get_data(q_neuron, data_types = 'MorphologyData')
-                for node in morphology_data.nodes_as_objs:
+                for node in morphology_data.get_nodes():
                     props = node.get_props()
                     update_props = {}
                     if 'name' in props:
@@ -2515,7 +2511,7 @@ class NeuroArch(object):
         if not update_chain:
             return True
 
-        pre_synapses = incoming_synapses(q_neuron).nodes_as_objs
+        pre_synapses = incoming_synapses(q_neuron).get_nodes()
         for node in tqdm(pre_synapses):
             props = node.get_props()
             update_props = {}
@@ -2538,7 +2534,7 @@ class NeuroArch(object):
                     update_props['uname'] = synapse_uname
                 node1.update(**update_props)
 
-        post_synapses = outgoing_synapses(q_neuron).nodes_as_objs
+        post_synapses = outgoing_synapses(q_neuron).get_nodes()
         for node in tqdm(post_synapses):
             props = node.get_props()
             update_props = {}
@@ -2659,7 +2655,7 @@ class NeuroArch(object):
             morphology_types_to_update = [m['type'] for m in morphology]
             morphology_data = get_data(q_synapse, data_types = 'MorphologyData')
             if len(morphology_data):
-                nodes_to_remove = [m._id for m in morphology_data.nodes_as_objs if m.type in morphology_types_to_update]
+                nodes_to_remove = [m._id for m in morphology_data.get_nodes() if m.type in morphology_types_to_update]
                 self._remove_by_rids(nodes_to_remove)
             self.add_morphology(synapse_to_update, morphology, data_source = data_source)
         return True
@@ -2691,7 +2687,7 @@ class NeuroArch(object):
         filename : str
             The name of the JSON file to be export to.
         """
-        all_tags = self.sql_query("""select from QueryResult""").nodes_as_objs
+        all_tags = self.sql_query("""select from QueryResult""").get_nodes()
 
         query_results = {}
         for tag in all_tags:
@@ -2792,7 +2788,7 @@ class NeuroArch(object):
                             post_neuron = self.graph.Neurons.query(referenceId = attr['post']).one()
                         synapse_rids = list(set(n._id for n in pre_neuron.out('SendsTo')).intersection(set(n._id for n in post_neuron.in_('SendsTo'))))
                         rids_synapses.append(synapse_rids[0])
-                        synapse = QueryWrapper.from_rids(self.graph, synapse_rids[0]).nodes_as_objs[0]
+                        synapse = QueryWrapper.from_rids(self.graph, synapse_rids[0]).get_nodes()[0]
                         obj = synapse
                     morphology = [n for n in obj.out('HasData') if isinstance(n, models.MorphologyData)][0]
                     visibility[morphology._id] = attr['visible']
@@ -2834,7 +2830,7 @@ class NeuroArch(object):
             The name of the tag to be removed.
         """
         try:
-            tag = self.sql_query("""select from QueryResult where tag = "{}" """.format(tag_name)).nodes_as_objs[0]
+            tag = self.sql_query("""select from QueryResult where tag = "{}" """.format(tag_name)).get_nodes()[0]
         except IndexError:
             raise ValueError("tag {} does not exist".format(tag_name))
 
@@ -2903,11 +2899,11 @@ class NeuroArch(object):
                                                        js = js)
 
         lpus = {}
-        for neuropil in neuropils.nodes_as_objs:
+        for neuropil in neuropils.get_nodes():
             lpus[neuropil._id] = self.add_LPU(neuropil, circuit_model_obj, version = model_version)
 
         neuron_models = {}
-        for neuron in neurons.nodes_as_objs:
+        for neuron in neurons.get_nodes():
             model = [pre for pre, post, v in g.in_edges(neuron._id, data = True) if v['class'] == 'Models'][0]
             params = copy.deepcopy(g.nodes[model])
             cls = params.pop('class')
@@ -2915,13 +2911,13 @@ class NeuroArch(object):
                 params['params'][k] = float(params['params'][k])
             for k in params['states']:
                 params['states'][k] = float(params['states'][k])
-            neuropil = QueryWrapper.from_rids(self.graph, neuron._id).owned_by(cls = 'Neuropil').nodes_as_objs[0]
+            neuropil = QueryWrapper.from_rids(self.graph, neuron._id).owned_by(cls = 'Neuropil').get_nodes()[0]
             neuron_models[neuron._id] = self.add_NeuronModel(neuron, cls,
                                                              lpus[neuropil._id],
                                                              **params)
 
         synapse_models = {}
-        for synapse in synapses.nodes_as_objs:
+        for synapse in synapses.get_nodes():
             model = [pre for pre, post, v in g.in_edges(synapse._id, data = True) if v['class'] == 'Models'][0]
             params = copy.deepcopy(g.nodes[model])
             cls = params.pop('class')
@@ -2935,7 +2931,7 @@ class NeuroArch(object):
             post_neuron = [post for pre, post, v in g.out_edges(synapse._id, data = True) \
                            if v['class'] == 'SendsTo' and \
                              issubclass(getattr(models, g.nodes[post]['class']), models.Neuron)][0]
-            post_neuron_neuropil = QueryWrapper.from_rids(self.graph, post_neuron).owned_by(cls = 'Neuropil').nodes_as_objs[0]
+            post_neuron_neuropil = QueryWrapper.from_rids(self.graph, post_neuron).owned_by(cls = 'Neuropil').get_nodes()[0]
             synapse_models[synapse._id] = self.add_SynapseModel(
                 synapse, cls,
                 neuron_models[pre_neuron],
@@ -3190,9 +3186,9 @@ class NeuroArch(object):
         if not issubclass(type(pre_neuron), models.NeuronModel):
             raise TypeError('post_neuron must be models.NeuronModel type')
 
-        pre_lpu = QueryWrapper.from_rids(self.graph, pre_neuron._id).owned_by(cls = 'LPU').nodes_as_objs[0]
+        pre_lpu = QueryWrapper.from_rids(self.graph, pre_neuron._id).owned_by(cls = 'LPU').get_nodes()[0]
         post_lpu = lpu
-        #post_lpu = QueryWrapper.from_rids(self.graph, post_neuron._id).owned_by(cls = 'LPU').nodes_as_objs[0]
+        #post_lpu = QueryWrapper.from_rids(self.graph, post_neuron._id).owned_by(cls = 'LPU').get_nodes()[0]
 
         synapse_model_obj = getattr(self.graph, model_cls.element_plural).create(name = synapse.uname, **params)
         self.link(synapse_model_obj, synapse, 'Models')
@@ -3243,7 +3239,7 @@ def outgoing_synapses(q, N = None, rel='>',include_inferred=True):
     db = NeuroArch('hemibrain')
     neurons = db.sql_query("select from Neuron where name like 'EPG' ")
     q = outgoing_synapses(neurons)
-    q.nodes_as_objs
+    q.get_nodes()
     """
     synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
     if N:
@@ -3278,7 +3274,7 @@ def incoming_synapses(q, N=None, rel='>',include_inferred=True):
     db = NeuroArch('hemibrain')
     neurons = db.sql_query("select from Neuron where name like 'EPG' ")
     q = incoming_synapses(neurons)
-    q.nodes_as_objs
+    q.get_nodes()
     """
     synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
     if N:
@@ -3307,7 +3303,7 @@ def get_data(q, data_types = None):
     db = NeuroArch('hemibrain')
     neurons = db.sql_query("select from Neuron where name like 'EPG' ")
     q = get_data(neurons, 'MorphologyData')
-    q.nodes_as_objs
+    q.get_nodes()
     """
     if data_types is None or len(data_types) == 0:
         data = q.gen_travesal_out(['HasData'], min_depth=1)
