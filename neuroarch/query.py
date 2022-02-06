@@ -1236,7 +1236,7 @@ class QueryWrapper(object):
         neuron_classes = 'NeuronAndFragment' if include_fragments else 'Neuron'
         rids = {n._id: n for n in self.get_nodes()}
         return QueryWrapper(self._graph, QueryString(
-            """select target from (MATCH {{class: Neuron, where: (@rid in [{rid}])}} -SendsTo-> {{class: Synapse{where}}} -SendsTo-> {{class: {neuron_class}, as: target}} return target)""".format(
+            """select expand(target) from (MATCH {{class: Neuron, where: (@rid in [{rid}])}} -SendsTo-> {{class: Synapse{where}}} -SendsTo-> {{class: {neuron_class}, as: target}} return target)""".format(
                 rid = ','.join(list(rids.keys())), neuron_class = neuron_classes, 
                 where = ', where: ({} {} {})'.format('NHP' if high_prob else 'N', rel, 0 if N is None else N) if N is not None else ', where: (NHP {} {})'.format(rel, 0 if N is None else N) if high_prob else '',
                 NHP = 'NHP' if high_prob else 'N'
@@ -1266,7 +1266,7 @@ class QueryWrapper(object):
         neuron_classes = 'NeuronAndFragment' if include_fragments else 'Neuron'
         rids = {n._id: n for n in self.get_nodes()}
         return QueryWrapper(self._graph, QueryString(
-            """select source from (MATCH {{class: Neuron, where: (@rid in [{rid}])}} <-SendsTo- {{class: Synapse{where}}} -SendsTo-> {{class: {neuron_class}, as: source}} return source)""".format(
+            """select expand(source) from (MATCH {{class: Neuron, where: (@rid in [{rid}])}} <-SendsTo- {{class: Synapse{where}}} -SendsTo-> {{class: {neuron_class}, as: source}} return source)""".format(
                 rid = ','.join(list(rids.keys())), neuron_class = neuron_classes, 
                 where = ', where: ({} {} {})'.format('NHP' if high_prob else 'N', rel, 0 if N is None else N) if N is not None else ', where: (NHP {} {})'.format(rel, 0 if N is None else N) if high_prob else '',
                 NHP = 'NHP' if high_prob else 'N'
@@ -1277,14 +1277,14 @@ class QueryWrapper(object):
         neuron_classes = 'NeuronAndFragment' if include_fragments else 'Neuron'
         rids = {n._id: n for n in self.get_nodes()}
         links = self._graph.client.command(
-            """MATCH {{class: Neuron, where: (@rid in [{rid}]), as: post}} <-SendsTo- {{class: Synapse, {where} as: syn}} <-SendsTo- {{class: {neuron_class}, as: source}} return post, syn.{NHP}, source""".format(
+            """MATCH {{class: {neuron_class}, where: (@rid in [{rid}]), as: post}} <-SendsTo- {{class: Synapse, {where} as: syn}} <-SendsTo- {{class: {neuron_class}, as: source}} return post, syn.{NHP}, source""".format(
                 rid = ','.join(list(rids.keys())), neuron_class = neuron_classes, 
                 where = 'where: ({} {} {}),'.format('NHP' if high_prob else 'N', rel, 0 if N is None else N) if N is not None else 'where: (NHP {} {}),'.format(rel, 0 if N is None else N) if high_prob else '',
                 NHP = 'NHP' if high_prob else 'N'
             ))
         if include_inferred:
             links.extend(self._graph.client.command(
-            """MATCH {{class: Neuron, where: (@rid in [{rid}]), as: post}} <-SendsTo- {{class: InferredSynapse, {where} as: syn}} <-SendsTo- {{class: {neuron_class}, as: source}} return post, syn.{NHP}, source""".format(
+            """MATCH {{class: {neuron_class}, where: (@rid in [{rid}]), as: post}} <-SendsTo- {{class: InferredSynapse, {where} as: syn}} <-SendsTo- {{class: {neuron_class}, as: source}} return post, syn.{NHP}, source""".format(
                 rid = ','.join(list(rids.keys())), neuron_class = neuron_classes, 
                 where = 'where: ({} {} {}),'.format('NHP' if high_prob else 'N', rel, 0 if N is None else N) if N is not None else 'where: (NHP {} {}),'.format(rel, 0 if N is None else N) if high_prob else '',
                 NHP = 'NHP' if high_prob else 'N'
@@ -1333,14 +1333,14 @@ class QueryWrapper(object):
         neuron_classes = 'NeuronAndFragment' if include_fragments else 'Neuron'
         rids = {n._id: n for n in self.get_nodes()}
         links = self._graph.client.command(
-            """MATCH {{class: Neuron, where: (@rid in [{rid}]), as: pre}} -SendsTo-> {{class: Synapse, {where} as: syn}} -SendsTo-> {{class: {neuron_class}, as: target}} return pre, syn.{NHP}, target""".format(
+            """MATCH {{class: {neuron_class}, where: (@rid in [{rid}]), as: pre}} -SendsTo-> {{class: Synapse, {where} as: syn}} -SendsTo-> {{class: {neuron_class}, as: target}} return pre, syn.{NHP}, target""".format(
                 rid = ','.join(list(rids.keys())), neuron_class = neuron_classes, 
                 where = 'where: ({} {} {}),'.format('NHP' if high_prob else 'N', rel, 0 if N is None else N) if N is not None else 'where: (NHP {} {}),'.format(rel, 0 if N is None else N) if high_prob else '',
                 NHP = 'NHP' if high_prob else 'N'
             ))
         if include_inferred:
             links.extend(self._graph.client.command(
-            """MATCH {{class: Neuron, where: (@rid in [{rid}]), as: pre}} -SendsTo-> {{class: InferredSynapse, {where} as: syn}} -SendsTo-> {{class: {neuron_class}, as: target}} return pre, syn.{NHP}, target""".format(
+            """MATCH {{class: {neuron_class}, where: (@rid in [{rid}]), as: pre}} -SendsTo-> {{class: InferredSynapse, {where} as: syn}} -SendsTo-> {{class: {neuron_class}, as: target}} return pre, syn.{NHP}, target""".format(
                 rid = ','.join(list(rids.keys())), neuron_class = neuron_classes, 
                 where = 'where: ({} {} {}),'.format('NHP' if high_prob else 'N', rel, 0 if N is None else N) if N is not None else 'where: (NHP {} {}),'.format(rel, 0 if N is None else N) if high_prob else '',
                 NHP = 'NHP' if high_prob else 'N'
@@ -1386,7 +1386,26 @@ class QueryWrapper(object):
         return post_neuron_list
 
     @class_method_timer
-    def get_connecting_synapses(self, N=None, rel='>',include_inferred=True):
+    def get_connecting_synapses(self, N=None, rel='>', include_inferred = True, include_fragments = False, high_prob = False):
+        neuron_classes = 'NeuronAndFragment' if include_fragments else 'Neuron'
+        rids = self._records_to_list(self.nodes)
+        cc = self.__class__(self._graph, QueryString(
+            """select expand(syn) from (MATCH {{class: {neuron_classes}, where: (@rid in [{rid}])}} -SendsTo-> {{class: Synapse, {where} as: syn}} -SendsTo-> {{class: {neuron_classes}, where: (@rid in [{rid}])}} return syn)""".format(
+                rid = ','.join(rids), neuron_classes = neuron_classes,
+                where = 'where: ({} {} {}),'.format('NHP' if high_prob else 'N', rel, 0 if N is None else N) if N is not None else 'where: (NHP {} {}),'.format(rel, 0 if N is None else N) if high_prob else '',
+                NHP = 'NHP' if high_prob else 'N'
+            ), 'sql'), debug = self.debug)
+        if include_inferred:
+            cc = cc + self.__class__(self._graph, QueryString(
+                """select expand(syn) from (MATCH {{class: {neuron_classes}, where: (@rid in [{rid}])}} -SendsTo-> {{class: InferredSynapse, {where} as: syn}} -SendsTo-> {{class: {neuron_classes}, where: (@rid in [{rid}])}} return syn)""".format(
+                    rid = ','.join(rids),  neuron_classes = neuron_classes,
+                    where = 'where: ({} {} {}),'.format('NHP' if high_prob else 'N', rel, 0 if N is None else N) if N is not None else 'where: (NHP {} {}),'.format(rel, 0 if N is None else N) if high_prob else '',
+                    NHP = 'NHP' if high_prob else 'N'
+                ), 'sql'), debug = self.debug)
+        return cc
+
+    @class_method_timer
+    def _get_connecting_synapses_old(self, N=None, rel='>', include_inferred = True):
         synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
         if N:
             return self.gen_traversal_out(['SendsTo', synapse_classes, {'N':(rel,N)}], min_depth=1) & \
@@ -1396,8 +1415,13 @@ class QueryWrapper(object):
                 self.gen_traversal_in(['SendsTo', synapse_classes], min_depth=1)
 
     @class_method_timer
-    def add_connecting_synapses(self, N=None, rel='>',include_inferred=True):
-        synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
+    def add_connecting_synapses(self, N=None, rel='>', include_inferred = True, include_fragments = False, high_prob = False):
+        return self + self.get_connecting_synapses(N = N, rel = rel, include_inferred = include_inferred, 
+                include_fragments = include_fragments, high_prob = high_prob)
+
+
+    @class_method_timer
+    def _add_connecting_synapses_old(self, N=None, rel='>',include_inferred=True):
         if N:
             return self + (self.gen_traversal_out(['SendsTo', synapse_classes, {'N':(rel,N)}], min_depth=1) & \
                 self.gen_traversal_in(['SendsTo', synapse_classes, {'N':(rel,N)}], min_depth=1))
@@ -1405,6 +1429,24 @@ class QueryWrapper(object):
             return self + (self.gen_traversal_out(['SendsTo', synapse_classes], min_depth=1) & \
                 self.gen_traversal_in(['SendsTo', synapse_classes], min_depth=1))
 
+    @class_method_timer
+    def add_connecting_synapses1(self, N=None, rel='>',include_inferred = True, include_fragments = False, high_prob = False):
+        neuron_classes = 'NeuronAndFragment' if include_fragments else 'Neuron'
+        rids = {n._id: n for n in self.get_nodes()}
+        links = self._graph.client.command(
+            """MATCH {{class: Neuron, where: (@rid in [{rid}])}} -SendsTo-> {{class: Synapse, {where} as: syn}} -SendsTo-> {{class: Neuron, where: (@rid in [{rid}])}} return syn""".format(
+                rid = ','.join(list(rids.keys())), neuron_class = neuron_classes, 
+                where = 'where: ({} {} {}),'.format('NHP' if high_prob else 'N', rel, 0 if N is None else N) if N is not None else 'where: (NHP {} {}),'.format(rel, 0 if N is None else N) if high_prob else '',
+                NHP = 'NHP' if high_prob else 'N'
+            ))
+
+        synapse_classes = ['Synapse', 'InferredSynapse'] if include_inferred else 'Synapse'
+        if N:
+            return self + (self.gen_traversal_out(['SendsTo', synapse_classes, {'N':(rel,N)}], min_depth=1) & \
+                self.gen_traversal_in(['SendsTo', synapse_classes, {'N':(rel,N)}], min_depth=1))
+        else:
+            return self + (self.gen_traversal_out(['SendsTo', synapse_classes], min_depth=1) & \
+                self.gen_traversal_in(['SendsTo', synapse_classes], min_depth=1))
 
     def get_connecting_synapsemodels(self):
         return self.gen_traversal_out(['SendsTo', 'SynapseModel','instanceof'], min_depth=1) & \
