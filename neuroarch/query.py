@@ -819,11 +819,12 @@ class QueryWrapper(object):
                 (columns, ", ".join(rid_list), classes, attrs_query)
 
         res = self._graph.client.command(query)
-        if res and isinstance(res[0].oRecordData['rid'],tuple):
-            res = ['#' + str(record.oRecordData['rid'][1]) + ':' + str(record.oRecordData['rid'][2])
-                   for record in res]
-        else:
-            res = [record.oRecordData['rid'].get_hash() for record in res]
+        # if res and isinstance(res[0].oRecordData['rid'],tuple):
+        #     res = ['#' + str(record.oRecordData['rid'][1]) + ':' + str(record.oRecordData['rid'][2])
+        #            for record in res]
+        # else:
+        #     res = [record.oRecordData['rid'].get_hash() for record in res]
+        res = [record._rid for record in res]
         return res
 
     @class_method_timer
@@ -1019,7 +1020,8 @@ class QueryWrapper(object):
         records = self._graph.client.command(query)
         in_edges = dict()
         for r in records:
-            rid_hash = r.oRecordData['rid'].get_hash()
+            # rid_hash = r.oRecordData['rid'].get_hash()
+            rid_hash = r._rid
             if rid_hash not in in_edges:
                 in_edges[rid_hash] = dict()
             for edge in edge_types:
