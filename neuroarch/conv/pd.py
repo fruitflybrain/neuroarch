@@ -54,14 +54,15 @@ def as_pandas(nodes=[], edges=[], force_rid=False, deepcopy = True):
         for k, v in tmp.items():
             if isinstance(v, pyorient.otypes.OrientBinaryObject):
                 continue
-            if isinstance(v, pyorient.otypes.OrientRecordLink):
-                continue
-            if (isinstance(v,list) and v and
-                       isinstance(v[0], pyorient.otypes.OrientRecordLink)):
-                continue
             if isinstance(k, str) and k.startswith('_'):
                 continue
-            props[k] = v
+            if isinstance(v, pyorient.otypes.OrientRecordLink):
+                props[k] = v.get_hash()
+            elif (isinstance(v,list) and v and
+                       isinstance(v[0], pyorient.otypes.OrientRecordLink)):
+                props[k] = [n.get_hash() for n in v]
+            else:
+                props[k] = v
         # props_keys = list(props.keys())
         # for k in props_keys:
         #

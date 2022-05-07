@@ -144,8 +144,8 @@ class QueryWrapper(object):
         QueryResultNode = QueryWrapper.from_objs(graph,obj)
         output = {}
         output['metadata'] = list(QueryResultNode.get_as('df')[0].to_dict(orient='index').values())[0]
-        for i in range(len(output['metadata']['pinned'])):
-            output['metadata']['pinned'][i] = '#' + ":".join(map(str,output['metadata']['pinned'][i][1:]))
+        # for i in range(len(output['metadata']['pinned'])):
+        #     output['metadata']['pinned'][i] = '#' + ":".join(map(str,output['metadata']['pinned'][i][1:]))
         output['qw'] = QueryResultNode.gen_traversal_out(['HasQueryResults'],min_depth=1)
         return output
 
