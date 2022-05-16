@@ -20,7 +20,7 @@ from warnings import warn
 
 from pyorient.ogm import Config, Graph
 from pyorient.exceptions import PyOrientCommandException
-from pyorient.otypes import OrientRecordLink
+from pyorient.utils import get_hash
 
 from neuroarch.utils import is_rid, iterable, chunks, class_method_timer
 from neuroarch.diff import diff_nodes, diff_edges
@@ -214,7 +214,7 @@ class QueryWrapper(object):
 
     @classmethod
     def _records_to_list(cls, records):
-        return [r.oRecordData['rid'].get_hash() if 'rid' in r.oRecordData else r._rid for r in records]
+        return [r._rid for r in records]
 
     @class_method_timer
     def get_as(self, as_type='df', force_rid=False, edges = True, edge_class = '', deepcopy = False):
@@ -795,8 +795,6 @@ class QueryWrapper(object):
                 query = "select expand($c) let $a=(select from (traverse out('owns') from %s while $depth <= 10))" % (n._id)
                 query += ", $b=(select from [%s]), $c=intersect($a,$b)" % (", ".join(rid_list))
                 toplevel[c][n.name] = self.__class__(self._graph, QueryString(query,'sql'), debug = self.debug)
-
-
         return toplevel
 
     @class_method_timer
@@ -1743,16 +1741,6 @@ def _kwargs(kwargs):
                 else:
                     attrs.append("%s in %s" % (k, v))
     return classes, attrs, depth, columns
-
-def get_hash(r):
-    if isinstance(r, tuple):
-        if r[0] == 'OrientRecordLink':
-            rid = '#{}:{}'.format(r[1], r[2])
-        else:
-            raise TypeError('Not sure what the output format is.')
-    elif isinstance(r, OrientRecordLink):
-        rid = r.get_hash()
-    return rid
 
 
 if __name__ == '__main__':

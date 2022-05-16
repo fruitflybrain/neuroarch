@@ -14,6 +14,7 @@ import json
 
 import pandas as pd
 import pyorient.otypes
+from pyorient.utils import get_hash
 
 from .utils import _find_field_types
 from ..utils import byteify, chunks
@@ -57,10 +58,10 @@ def as_pandas(nodes=[], edges=[], force_rid=False, deepcopy = True):
             if isinstance(k, str) and k.startswith('_'):
                 continue
             if isinstance(v, pyorient.otypes.OrientRecordLink):
-                props[k] = v.get_hash()
+                props[k] = get_hash(v)
             elif (isinstance(v,list) and v and
                        isinstance(v[0], pyorient.otypes.OrientRecordLink)):
-                props[k] = [n.get_hash() for n in v]
+                props[k] = [get_hash(n) for n in v]
             else:
                 props[k] = v
         # props_keys = list(props.keys())
