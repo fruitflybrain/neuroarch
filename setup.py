@@ -67,11 +67,10 @@ if __name__ == "__main__":
             'numpy',
             'pandas',
             'path.py',
-            'pyorient @ https://github.com/fruitflybrain/pyorient/archive/v1.5.6.tar.gz#egg=pyorient-1.5.6',
-            'pyorient_native',
+            'pyorient @ https://github.com/fruitflybrain/pyorient/tarball/token_only#egg=pyorient-1.6.0',
+            'pyorient_native @ https://github.com/fruitflybrain/pyorient_native/tarball/master#egg=pyorient_native-1.2.3',
             'deepdiff',
             'tqdm'],
-        dependency_links=['https://github.com/fruitflybrain/pyorient/archive/v1.5.6.tar.gz#egg=pyorient-1.5.6'],
         extra_requires = {
             'doc': docs_extras,
         }
