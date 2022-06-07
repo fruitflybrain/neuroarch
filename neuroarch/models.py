@@ -9,12 +9,11 @@ Neuroarch data models.
 # Distributed under the terms of the BSD license:
 # http://www.opensource.org/licenses/bsd-license
 
-import numbers
+import inspect
 
 from pyorient.ogm.declarative import declarative_node, \
     declarative_relationship
-from pyorient.ogm.property import EmbeddedMap, EmbeddedSet, String, EmbeddedList, Boolean, Integer, Double
-import pyorient.otypes
+from pyorient.ogm.property import Property, EmbeddedMap, EmbeddedSet, String, EmbeddedList, Boolean, Integer, Double
 
 #import neuroarch.conv.pd as pd
 #import neuroarch.conv.nx as nx
@@ -79,6 +78,13 @@ class NeuroarchNodeMixin(object):
 
         props = self._graph.client.query('select * from %s' % self._id)[0]
         return utils.orientrecord_to_dict(props)
+    
+    @property
+    def props(self):
+        """
+        Returns record properties that have been retrieved.
+        """
+        return {k: getattr(self, k) for k, v in inspect.getmembers(type(self)) if isinstance(v, Property)}
 
     # XXX add option to these methods to control whether both nodes and edges
     # are returned:
@@ -121,6 +127,16 @@ class Node(declarative_node(), NeuroarchNodeMixin):
 class Relationship(declarative_relationship()):
     label = 'Relationship'
 
+class MetaData(Node):
+    element_type = 'MetaData'
+    element_plural = 'MetaDatas'
+    created_by = EmbeddedMap(linked_to=String(), nullable=False, unique=False)
+    version = String(nullable=False, unique=False, indexed=True)
+    # NeuroArch_version = String(nullable=False, unique=False, indexed=True)
+    # min_NeuroArch_version_supported = String(nullable=False, unique=False, indexed=True)
+    # OrientDB_version = String(nullable=False, unique=False, indexed=True)
+    maintainer = EmbeddedMap(linked_to=String(), nullable=False, unique=False)
+    
 class Species(Node):
     element_type = 'Species'
     element_plural = 'Species'
@@ -242,6 +258,7 @@ class InferredSynapse(BioNode):
     element_plural = 'InferredSynapses'
     name = String(nullable=False, unique=False, indexed=True)
     N = Integer(nullable=True, unique=False, indexed=True)
+    uname = String(nullable=True, unique=False, indexed=True)
 
 class GapJunction(BioNode):
     element_type = 'GapJunction'

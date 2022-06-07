@@ -1,19 +1,15 @@
 #!/usr/bin/env python
 
-import collections
-import numbers
-import pprint
+
 import re
 from datetime import datetime
 import json
-import time
 import itertools
 import copy
 from tqdm import tqdm
-import pdb
 import os
-from warnings import warn
 import copy
+from packaging import version as pv
 
 import numpy as np
 import networkx as nx
@@ -22,27 +18,27 @@ from pyorient.ogm import Graph, Config
 from pyorient.serializations import OrientSerialization
 from pyorient.ogm.exceptions import NoResultFound
 
-from neuroarch.utils import is_rid, iterable, chunks
-from neuroarch.diff import diff_nodes, diff_edges
-from neuroarch.apply_diff import apply_node_diff, apply_edge_diff
-from neuroarch.query import QueryWrapper, QueryString, _kwargs
-import neuroarch.models as models
+from .query import QueryWrapper, QueryString
+from . import models
+from . import version as na_version
 
 special_char = set("*?+\.()[]|{}^$'")
 
 rid_pattern = re.compile("#[0-9]+:[0-9]+")
 
+BACKWARD_COMPATIBLE_TO = '0.4.0'
+
 def replace_special_char(text):
     return ''.join(['\\'+s if s in special_char else s for s in text])
 
 
-def connect(host, db_name, port = 2424, user = 'admin', password = 'admin',
+def connect(host, db_name, port = 2424, storage = 'plocal', user = 'admin', password = 'admin',
             initial_drop = False, serialization_type = OrientSerialization.Binary,
             new_models = False):
     # graph = Graph(Config.from_url(url, user, password, initial_drop))
 
     graph = Graph(Config(host, port, user, password, db_name,
-                         'plocal', initial_drop = initial_drop,
+                         storage, initial_drop = initial_drop,
                          serialization_type = serialization_type))
     if initial_drop or new_models:
         graph.create_all(models.Node.registry)
@@ -127,6 +123,9 @@ def _to_var_name(s):
     return r
 
 
+class VersionMismatchException(Exception):
+    pass
+
 class NeuroArch(object):
     """
         Create or connect to a NeuroArch object for database access.
@@ -147,28 +146,62 @@ class NeuroArch(object):
             'r': read only
             'w': read/write on existing database, if does not exist, one is created.
             'o': read/write and overwrite any of the existing data in the database.
+        storage: str (optional)
+            'plocal': using disk-based storage for the database
+            'memory': memory storage
         new_models: bool (optional)
             If true, recreate the ogm classes.
         debug : bool (optional)
             Whether the queries are done in debug mode
+        serialization_type: str
+            Either 'Binary' or 'CSV', specifying the seriailzation strategy of
+            pyorient communication with OrientDB server.
+        version : str
+            If a new database will be created, e.g., mode = 'o' or mode = 'w' and database
+            does not exist, then version should be provided.
+        maintainer_name: str
+            If a new database will be created, e.g., mode = 'o' or mode = 'w' and database
+            does not exist, then maintainer of the author name should be provided.
+        maintainer_email: str
+            Email of the maintainer, should be provided when maintainer_name is needed.
         """
     def __init__(self, db_name, host = 'localhost', port = 2424,
                  user = 'root', password = 'root', mode = 'r',
+                 storage = 'plocal',
                  new_models = False, debug = False,
-                 serialization_type = 'Binary'):
+                 serialization_type = 'Binary', version = None,
+                 maintainer_name = "", maintainer_email = ""):
         self._mode = mode
         self._db_name = db_name
         self._host = host
         self._port = port
         self._user = user
         self._password = password
+        if storage not in ['plocal', 'memory']:
+            raise ValueError("storage type can only be either 'plocal' or 'memory'")
+        self._storage = storage
         if serialization_type == 'Binary':
             self._serialization_type = OrientSerialization.Binary
         elif serialization_type == 'CSV':
             self._serialization_type = OrientSerialization.CSV
         else:
             self._serialization_type = None
-        self.connect(new_models)
+        created_new_database = self.connect(new_models)
+        if created_new_database:
+            if version is None:
+                raise ValueError("Please specify version of this database.")
+            self._initialize_database(version,
+                                      maintainer_name = maintainer_name,
+                                      maintainer_email = maintainer_email)
+        else:
+            meta = self._get_version()
+            if pv.parse(meta['created_by']['min_NeuroArch_version_supported']) > pv.parse(na_version.__version__):
+                raise VersionMismatchException("Please upgrade NeuroArch to version {} to operate on this database.".format(
+                    meta['created_by']['min_NeuroArch_version_supported']
+                )
+            )
+            if pv.parse(meta['created_by']['min_NeuroArch_version_supported']) < pv.parse(BACKWARD_COMPATIBLE_TO):
+                raise VersionMismatchException("The copy of database is obsolete. For public datasets, please download a new copy of the database from https://github.com/FlyBrainLab/datasets")
 
         self._debug = debug
         self._default_DataSource = None
@@ -176,7 +209,19 @@ class NeuroArch(object):
         self._check = True
 
     def connect(self, new_models = False):
-        """Connect to the database specified during instantiation"""
+        """
+        Connect to the database specified during instantiation
+
+        Parameters
+        ----------
+        new_models: bool
+            If model definition in model.py has been changed.
+
+        Returns
+        -------
+        bool
+            Whether a new database is created.
+        """
         if self._mode == 'r':
             initial_drop = False
             self._allow_write = False
@@ -203,11 +248,15 @@ class NeuroArch(object):
                               write ('w'), or overwrite ('o').""")
         self.graph = connect(self._host, self._db_name, port = self._port,
                              user = self._user, password = self._password,
+                             storage = self._storage,
                              initial_drop = initial_drop,
                              serialization_type = serialization_type,
                              new_models = new_models)
+        
+        new_db = self.graph._new_db
         if initial_drop:
             self.reconnect()
+        return new_db
 
     def reconnect(self):
         """Reconnect to the database specified during instantiation"""
@@ -223,8 +272,39 @@ class NeuroArch(object):
                 serialization_type = self._serialization_type
         self.graph = connect(self._host, self._db_name, port = self._port,
                              user = self._user, password = self._password,
+                             storage = self._storage,
                              initial_drop = False,
                              serialization_type = serialization_type)
+    
+    def _initialize_database(self, version, maintainer_name = "", maintainer_email = ""):
+        """
+        Initialize database by writing essential nodes such as metadata.
+        """
+        odb_version = self.graph.client.version
+
+        create = {
+            "NeuroArch_version": na_version.__version__,
+            "min_NeuroArch_version_supported": "0.4.0",
+            "OrientDB_version": "{}.{}.{}".format(
+                                    odb_version.major,
+                                    odb_version.minor,
+                                    odb_version.build),
+            "created_date": datetime.now().isoformat()
+        }
+        maintainer = {
+            "name": maintainer_name,
+            "email": maintainer_email
+        }
+        self.graph.MetaDatas.create(version = version,
+                                    created_by = create,
+                                    maintainer = maintainer)
+
+    def _get_version(self):
+        try:
+            meta = self.graph.MetaDatas.query().one().props
+            return meta
+        except:
+            raise VersionMismatchException("The copy of database is obsolete. For public datasets, please download a new copy of the database from https://github.com/FlyBrainLab/datasets")
 
     def _get_obj_from_str(self, obj):
         if isinstance(obj, str) and rid_pattern.fullmatch(obj) is not None:
