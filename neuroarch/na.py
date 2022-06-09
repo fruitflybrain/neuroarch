@@ -10,6 +10,7 @@ from tqdm import tqdm
 import os
 import copy
 from packaging import version as pv
+import warnings
 
 import numpy as np
 import networkx as nx
@@ -27,6 +28,7 @@ special_char = set("*?+\.()[]|{}^$'")
 rid_pattern = re.compile("#[0-9]+:[0-9]+")
 
 BACKWARD_COMPATIBLE_TO = '0.4.0'
+
 
 def replace_special_char(text):
     return ''.join(['\\'+s if s in special_char else s for s in text])
@@ -52,7 +54,6 @@ class NotWriteableError(Exception):
     """NeuroArch not writeable error"""
     pass
 
-
 class DuplicateNodeError(Exception):
     """NeuroArch got duplicate nodes"""
     pass
@@ -69,12 +70,23 @@ class NodeAlreadyExistWarning(Warning):
     """NeuroArch node with the same property already exsits"""
     pass
 
+class RecordNotFoundWarning(Warning):
+    """Warning when record is not found"""
+    pass
+
 class DuplicateNodeWarning(Warning):
     """NeuroArch got duplicate nodes"""
     pass
 
 class DataSourceError(Exception):
     """The node is not owned by a DataSource"""
+    pass
+
+class VersionMismatchException(Exception):
+    pass
+
+class DataInconsistencyWarning(Warning):
+    """Potential inconsistenty in the database"""
     pass
 
 relations = {'Neuropil': {'Neuron': 'Owns',
@@ -122,9 +134,6 @@ def _to_var_name(s):
         r = 'a'+r
     return r
 
-
-class VersionMismatchException(Exception):
-    pass
 
 class NeuroArch(object):
     """
@@ -207,6 +216,9 @@ class NeuroArch(object):
         self._default_DataSource = None
         self._cache = {}
         self._check = True
+        self._owns_write_cache = {}
+        self.__neuron_inconsistent_warned = False
+        self.__synapse_inconsistent_warned = False
 
     def connect(self, new_models = False):
         """
@@ -270,11 +282,18 @@ class NeuroArch(object):
                 serialization_type = OrientSerialization.Binary
             else:
                 serialization_type = self._serialization_type
+        self._disconnect()
         self.graph = connect(self._host, self._db_name, port = self._port,
                              user = self._user, password = self._password,
                              storage = self._storage,
                              initial_drop = False,
                              serialization_type = serialization_type)
+    
+    def _disconnect(self):
+        self.graph.client._connection._socket.close()
+
+    def __del__(self):
+        self._disconnect()
     
     def _initialize_database(self, version, maintainer_name = "", maintainer_email = ""):
         """
@@ -394,6 +413,36 @@ class NeuroArch(object):
             self._cache.setdefault(data_source, {}).setdefault(cls, {})[name] = value
         else:
             raise ValueError('data_source specification unknown.')
+
+    def _add_to_owns_cache(self, cls, owner, child):
+        if cls not in self._owns_write_cache:
+            self._owns_write_cache[cls] = {}
+        if owner._id not in self._owns_write_cache[cls]:
+            self._owns_write_cache[cls][owner._id] = []
+        self._owns_write_cache[cls][owner._id].append(child)
+
+    def flush_edges(self):
+        edges = []
+        for cls, v in self._owns_write_cache.items():
+            for owner_id, child_list in v.items():
+                owner = QueryWrapper.from_rids(self.graph, owner_id).node_objs[0]
+                for child in child_list:
+                    edges.append([owner, child])
+        print('creating Owns edge records, please wait...')
+        i = 0
+        batch_commited = True
+        for owner, child in tqdm(edges):
+            if i % 1000 == 0:
+                batch_commited = False
+                batch = self.graph.batch()
+            self.link_with_batch(batch, owner, child, 'Owns')
+            if i % 1000 == 999:
+                batch.commit(20)
+                batch_commited = True
+            i += 1
+        if not batch_commited:
+            batch.commit(20)
+        self._owns_write_cache = {}
 
     def disable_check(self):
         self._check = False
@@ -1318,8 +1367,6 @@ class NeuroArch(object):
 
         batch[neuron_name] = batch.Neurons.create(**neuron_info)
 
-        self.link_with_batch(batch, connect_DataSource, batch[:neuron_name],
-                             'Owns')
         if circuit is not None:
             self.link_with_batch(batch, circuit, batch[:neuron_name], 'Owns')
             # a hack now to make nlp work
@@ -1374,7 +1421,7 @@ class NeuroArch(object):
                                                              axons = axons)
             self.link_with_batch(batch, batch[:neuron_name],
                                  batch[:arb_name], 'HasData')
-            self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
+            #self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
             if local_neuron is not None:
                 self.link_with_batch(batch,
                                      self.get('Neuropil',
@@ -1385,7 +1432,13 @@ class NeuroArch(object):
         
         neuron = batch['${}'.format(neuron_name)]
         batch.commit(20)
+        self._add_to_owns_cache(connect_DataSource.element_type, connect_DataSource, neuron)
+        if not self.__neuron_inconsistent_warned:
+            warnings.warn("""Created neuron has not been connected to its DataSource yet. Please execute flush_edges() after adding all Neurons""", category = DataInconsistencyWarning)
+            self.__neuron_inconsistent_warned = True
+
         self.set('Neuron', uname, neuron, data_source = connect_DataSource)
+        
 
         if neurotransmitters is not None:
             self.add_neurotransmitter(neuron, neurotransmitters,
@@ -1465,8 +1518,8 @@ class NeuroArch(object):
         
         batch[neuron_name] = batch.NeuronFragments.create(**neuron_info)
 
-        self.link_with_batch(batch, connect_DataSource, batch[:neuron_name],
-                             'Owns')
+        #self.link_with_batch(batch, connect_DataSource, batch[:neuron_name],
+        #                     'Owns')
 
         if arborization is not None:
             if not isinstance(arborization, list):
@@ -1517,7 +1570,7 @@ class NeuroArch(object):
                                                              axons = axons)
             self.link_with_batch(batch, batch[:neuron_name],
                                  batch[:arb_name], 'HasData')
-            self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
+            #self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
             if local_neuron is not None:
                 self.link_with_batch(batch,
                                      self.get('Neuropil',
@@ -1528,6 +1581,10 @@ class NeuroArch(object):
         
         neuron = batch['${}'.format(neuron_name)]
         batch.commit(20)
+        self._add_to_owns_cache(connect_DataSource.element_type, connect_DataSource, neuron)
+        if not self.__neuron_inconsistent_warned:
+            warnings.warn("""Created Neuron has not been connected to its DataSource yet. Please execute flush_edges() after adding all Neurons""", category = DataInconsistencyWarning)
+            self.__neuron_inconsistent_warned = True 
         self.set('NeuronFragment', uname, neuron, data_source = connect_DataSource)
 
         if morphology is not None:
@@ -1693,8 +1750,9 @@ class NeuroArch(object):
                                     json.dumps(content)))[0])
             else:
                 raise TypeError('Morphology type {} unknown'.format(data['type']))
-            self.graph.HasData.create(obj, morph_obj)
-            self.graph.Owns.create(connect_DataSource, morph_obj)
+            self.link(obj, morph_obj, 'HasData')
+            #self.link(connect_DataSource, morph_obj, 'Owns')
+            
 
     def add_neuron_arborization(self, neuron, arborization, data_source = None):
         """
@@ -1776,7 +1834,7 @@ class NeuroArch(object):
                                                          axons = axons)
         self.link_with_batch(batch, neuron,
                              batch[:arb_name], 'HasData')
-        self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
+        #self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
         if local_neuron is not None:
             self.link_with_batch(batch,
                                  self.get('Neuropil',
@@ -1885,8 +1943,8 @@ class NeuroArch(object):
         synapse_obj_name = _to_var_name(synapse_uname)
         batch[synapse_obj_name] = batch.Synapses.create(**synapse_info)
 
-        self.link_with_batch(batch, connect_DataSource, batch[:synapse_obj_name],
-                             'Owns')
+        #self.link_with_batch(batch, connect_DataSource, batch[:synapse_obj_name],
+        #                     'Owns')
         self.link_with_batch(batch, pre_neuron_obj, batch[:synapse_obj_name],
                              'SendsTo')
         self.link_with_batch(batch, batch[:synapse_obj_name], post_neuron_obj,
@@ -1920,9 +1978,15 @@ class NeuroArch(object):
                                                              synapses = synapses)
             self.link_with_batch(batch, batch[:synapse_obj_name],
                                  batch[:arb_name], 'HasData')
-            self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
+            # self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
         synapse = batch['${}'.format(synapse_obj_name)]
         batch.commit(20)
+        # datasource -Owns-> synapse is postponed to the cache due to performance issue
+        # with orientdb to handle edge insertion into super node.
+        self._add_to_owns_cache(connect_DataSource.element_type, connect_DataSource, synapse)
+        if not self.__synapse_inconsistent_warned:
+            warnings.warn("""Created Synapse has not been connected to its DataSource yet. Please execute flush_edges() after adding all Synapses""", category = DataInconsistencyWarning)
+            self.__synapse_inconsistent_warned = True
         #self.set('Synapse', '{}{}'.format(synapse_name, synapse._id), synapse, data_source = connect_DataSource)
 
         if morphology is not None:
@@ -1987,7 +2051,7 @@ class NeuroArch(object):
                                                          synapses = synapses)
         self.link_with_batch(batch, synapse,
                              batch[:arb_name], 'HasData')
-        self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
+        # self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
         batch.commit(10)
 
     def add_InferredSynapse(self, pre_neuron, post_neuron,
@@ -2080,8 +2144,8 @@ class NeuroArch(object):
         synapse_obj_name = _to_var_name(synapse_uname)
         batch[synapse_obj_name] = batch.InferredSynapses.create(**synapse_info)
 
-        self.link_with_batch(batch, connect_DataSource, batch[:synapse_obj_name],
-                             'Owns')
+        # self.link_with_batch(batch, connect_DataSource, batch[:synapse_obj_name],
+        #                      'Owns')
         self.link_with_batch(batch, pre_neuron_obj, batch[:synapse_obj_name],
                              'SendsTo')
         self.link_with_batch(batch, batch[:synapse_obj_name], post_neuron_obj,
@@ -2115,9 +2179,15 @@ class NeuroArch(object):
                                                              synapses = synapses)
             self.link_with_batch(batch, batch[:synapse_obj_name],
                                  batch[:arb_name], 'HasData')
-            self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
+            # self.link_with_batch(batch, connect_DataSource, batch[:arb_name], 'Owns')
         synapse = batch['${}'.format(synapse_obj_name)]
         batch.commit(20)
+        # datasource -Owns-> synapse is postponed to the cache due to performance issue
+        # with orientdb to handle edge insertion into super node.
+        self._add_to_owns_cache(connect_DataSource.element_type, connect_DataSource, synapse)
+        if not self.__synapse_inconsistent_warned:
+            warnings.warn("""Created Synapse has not been connected to its DataSource yet. Please execute flush_edges() after adding all Synapses""", category = DataInconsistencyWarning)
+            self.__synapse_inconsistent_warned = True
         #self.set('Synapse', '{}{}'.format(synapse_name, synapse._id), synapse, data_source = connect_DataSource)
 
         if morphology is not None:
@@ -2257,9 +2327,11 @@ class NeuroArch(object):
                 try:
                     neuron_obj = self.get('Neuron', neuron_name, connect_DataSource)
                 except RecordNotFoundError:
-                    Warning('Neuron {} not found in the database, no need to remove'.format(neuron_name))
+                    warnings.warn('Neuron {} not found in the database, no need to remove'.format(neuron_name),
+                                  category = RecordNotFoundWarning)
                 except DuplicateNodeError:
-                    Warning('Neuron {} found to have more than 1 copy, removing all.')
+                    warnings.warn('Neuron {} found to have more than 1 copy, removing all.',
+                                   category = DuplicateNodeWarning)
                     objs = self._find('Neuron', data_source, uname = neuron_name).node_objs
                     neuron_objs.extend(objs)
                 except:
@@ -2307,7 +2379,7 @@ class NeuroArch(object):
             synapses = [self._get_obj_from_str(synapse) for synapse in synapses]
 
         synapse_objs = []
-        for synapse in synaspes:
+        for synapse in synapses:
             if isinstance(synapse, (models.Synapse, models.InferredSynapse)):
                 if safe:
                     if not self._is_in_datasource(connect_DataSource, synapse):
@@ -2324,15 +2396,17 @@ class NeuroArch(object):
                     try:
                         synapse_obj = self.get('InferredSynapse', synapse_name, connect_DataSource)
                     except RecordNotFoundError:
-                        Warning('synapse/InferredSynapse {} not found in the database, no need to remove'.format(synapse_name))
+                        warnings.warn('synapse/InferredSynapse {} not found in the database, no need to remove'.format(synapse_name), category = RecordNotFoundWarning)
                     except DuplicateNodeError:
-                        Warning('Synapse {} found to have more than 1 copy, removing all.')
+                        warnings.warn('Synapse {} found to have more than 1 copy, removing all.',
+                                      category = DuplicateNodeWarning)
                         objs = self._find('InferredSynapse', data_source, uname = synapse_name).node_objs
                         synapse_objs.extend(objs)
                     except:
                         raise
                 except DuplicateNodeError:
-                    Warning('Synpase {} found to have more than 1 copy, removing all.')
+                    warnings.warn('Synpase {} found to have more than 1 copy, removing all.',
+                                  category =  DuplicateNodeWarning)
                     objs = self._find('Synpase', data_source, uname = synapse_name).node_objs
                     synapse_objs.extend(objs)
                 except:
@@ -2837,6 +2911,8 @@ class NeuroArch(object):
         filename : str
             The name of the JSON file to import (typically was created by the export_tag)
         """
+        self._database_writeable_check()
+
         with open(filename) as f:
             query_results = json.load(f)
 
