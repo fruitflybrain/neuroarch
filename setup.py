@@ -67,7 +67,7 @@ if __name__ == "__main__":
             'numpy',
             'pandas',
             'path.py',
-            'pyorient @ https://github.com/fruitflybrain/pyorient/tarball/token_only#egg=pyorient-1.6.0',
+            'pyorient @ https://github.com/fruitflybrain/pyorient/tarball/v1.6.0#egg=pyorient-1.6.0',
             'pyorient_native @ https://github.com/fruitflybrain/pyorient_native/tarball/master#egg=pyorient_native-1.2.3',
             'deepdiff',
             'tqdm'],
