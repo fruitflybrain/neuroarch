@@ -329,8 +329,8 @@ class CircuitDiagram(DesignNode):
     element_plural = 'CircuitDiagrams'
     name = String(nullable=False, unique=False, indexed=True)
     version = String(nullable=True, unique=False, indexed=True)
-    diagram = String(nullable=False, unique=False, indexed=False)
-    js = String(nullable=False, unique=False, indexed=False)
+    diagrams = EmbeddedMap(linked_to=String(), nullable=False, unique=False, indexed=False)
+    submodules = EmbeddedMap(linked_to=String(), nullable=True, unique=False, indexed=True)
 
 class LPU(DesignNode):
     element_type = 'LPU'
