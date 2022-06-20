@@ -27,7 +27,7 @@ special_char = set("*?+\.()[]|{}^$'")
 
 rid_pattern = re.compile("#[0-9]+:[0-9]+")
 
-BACKWARD_COMPATIBLE_TO = '0.4.0'
+BACKWARD_COMPATIBLE_TO = '0.4.1'
 
 
 def replace_special_char(text):
@@ -303,7 +303,7 @@ class NeuroArch(object):
 
         create = {
             "NeuroArch_version": na_version.__version__,
-            "min_NeuroArch_version_supported": "0.4.0",
+            "min_NeuroArch_version_supported": "0.4.1",
             "OrientDB_version": "{}.{}.{}".format(
                                     odb_version.major,
                                     odb_version.minor,
