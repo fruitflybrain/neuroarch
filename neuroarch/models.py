@@ -120,7 +120,7 @@ class NeuroarchNodeMixin(object):
         q = QueryWrapper(self._graph, QueryString('select from %s' % self._id, 'sql'))
         return q.traverse_owned_by(**kwargs)
 
-class Node(declarative_node(), NeuroarchNodeMixin):
+class Node(NeuroarchNodeMixin, declarative_node()):
     element_type = 'Node'
     element_plural = 'Nodes'
 
@@ -330,7 +330,7 @@ class CircuitDiagram(DesignNode):
     name = String(nullable=False, unique=False, indexed=True)
     version = String(nullable=True, unique=False, indexed=True)
     diagrams = EmbeddedMap(linked_to=String(), nullable=False, unique=False, indexed=False)
-    submodules = EmbeddedMap(linked_to=String(), nullable=True, unique=False, indexed=True)
+    submodules = EmbeddedMap(linked_to=String(), nullable=True, unique=False, indexed=False)
 
 class LPU(DesignNode):
     element_type = 'LPU'
