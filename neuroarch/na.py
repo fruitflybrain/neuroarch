@@ -3052,14 +3052,12 @@ class NeuroArch(object):
 
         # create LPU
         circuit_model_obj = self.add_ExecutableCircuit(model_name, version = model_version,
-                                                       circuit_diagram = circuit_diagram,
-                                                       js = js)
+                                                       circuit_diagrams = circuit_diagrams,
+                                                       submodules = submodules)
 
         lpus = {}
         for neuropil in neuropils.node_objs:
-            lpus[neuropil._id] = self.add_LPU(neuropil, circuit_model_obj, version = model_version,
-                                              circuit_diagrams = circuit_diagrams,
-                                              submodules = submodules)
+            lpus[neuropil._id] = self.add_LPU(neuropil, circuit_model_obj, version = model_version)
 
         neuron_models = {}
         for neuron in neurons.node_objs:
@@ -3070,7 +3068,7 @@ class NeuroArch(object):
                 params['params'][k] = float(params['params'][k])
             for k in params['states']:
                 params['states'][k] = float(params['states'][k])
-            neuropil = QueryWrapper.from_rids(self.graph, neuron._id).owned_by(cls = 'Neuropil').node_objs[0]
+            neuropil = QueryWrapper.from_rids(self.graph, neuron._id).traverse_owned_by(cls = 'Neuropil').node_objs[0]
             neuron_models[neuron._id] = self.add_NeuronModel(neuron, cls,
                                                              lpus[neuropil._id],
                                                              **params)
@@ -3153,7 +3151,7 @@ class NeuroArch(object):
         ----------
         name : str
             The name of the circuit diagram.
-        diagram : str
+        diagrams : dict
             A str specifying the diagram in SVG format.
         version : str (optional)
             The version of the circuit diagram
