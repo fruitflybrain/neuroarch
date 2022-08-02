@@ -14,7 +14,7 @@ from setuptools import find_packages
 from setuptools import setup
 
 NAME =               'neuroarch'
-VERSION =            '0.4.1'
+VERSION =            '0.4.2'
 AUTHOR =             'Lev Givon, Nikul Ukani, Yiyin Zhou'
 AUTHOR_EMAIL =       'lev@columbia.edu, nikul@ee.columbia.edu, yiyin@ee.columbia.edu'
 URL =                'https://github.com/fruitflybrain/neuroarch/'
@@ -63,7 +63,7 @@ if __name__ == "__main__":
         include_package_data = True,
         install_requires = [
             'daff',
-            'networkx>=2.4',
+            'networkx>=2.4,<3',
             'numpy',
             'pandas',
             'path.py',
