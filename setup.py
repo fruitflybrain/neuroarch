@@ -63,7 +63,7 @@ if __name__ == "__main__":
         include_package_data = True,
         install_requires = [
             'daff',
-            'networkx>=2.4,<3',
+            'networkx>=2.4',
             'numpy',
             'pandas',
             'path.py',
