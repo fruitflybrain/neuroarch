@@ -849,10 +849,10 @@ class NeuroArch(object):
         species : dict or models.Species
             The species the added DataSource is for.
             If species is a dict, it must be contain the following keys:
-                {'name': str,
-                 'stage': str,
-                 'synonyms': list of str (optional)
-                }
+            {'name': str,
+            'stage': str,
+            'synonyms': list of str (optional)
+            }
 
         Returns
         -------
@@ -917,8 +917,8 @@ class NeuroArch(object):
         morphology : dict (optional)
             Morphology of the neuropil boundary specified with a triangulated mesh,
             with fields
-                'vertices': a single list of float, every 3 entries specify (x,y,z) coordinates.
-                'faces': a single list of int, every 3 entries specify samples of vertices.
+            'vertices': a single list of float, every 3 entries specify (x,y,z) coordinates.
+            'faces': a single list of int, every 3 entries specify samples of vertices.
             Or, specify the file path to a json file that includes the definition of the mesh.
             Or, specify only a url which can be readout later on.
         data_source : models.DataSource (optional)
@@ -981,8 +981,8 @@ class NeuroArch(object):
         morphology : dict (optional)
             Morphology of the neuropil boundary specified with a triangulated mesh,
             with fields
-                'vertices': a single list of float, every 3 entries specify (x,y,z) coordinates.
-                'faces': a single list of int, every 3 entries specify samples of vertices.
+            'vertices': a single list of float, every 3 entries specify (x,y,z) coordinates.
+            'faces': a single list of int, every 3 entries specify samples of vertices.
             Or, specify the file path to a json file that includes the definition of the mesh.
             Or, specify only a url which can be readout later on.
         data_source : models.DataSource (optional)
@@ -1072,8 +1072,8 @@ class NeuroArch(object):
         morphology : dict (optional)
             Morphology of the neuropil boundary specified with a triangulated mesh,
             with fields
-                'vertices': a single list of float, every 3 entries specify (x,y,z) coordinates.
-                'faces': a single list of int, every 3 entries specify samples of vertices.
+            'vertices': a single list of float, every 3 entries specify (x,y,z) coordinates.
+            'faces': a single list of int, every 3 entries specify samples of vertices.
             Or, specify the file path to a json file that includes the definition of the mesh.
             Or, specify only a url which can be readout later on.
         data_source : models.DataSource (optional)
@@ -1159,8 +1159,8 @@ class NeuroArch(object):
         morphology : dict (optional)
             Morphology of the neuropil boundary specified with a triangulated mesh,
             with fields
-                'vertices': a single list of float, every 3 entries specify (x,y,z) coordinates.
-                'faces': a single list of int, every 3 entries specify samples of vertices.
+            'vertices': a single list of float, every 3 entries specify (x,y,z) coordinates.
+            'faces': a single list of int, every 3 entries specify samples of vertices.
             Or, specify the file path to a json file that includes the definition of the mesh.
             Or, specify only a url which can be readout later on.
         data_source : models.DataSource (optional)
@@ -1299,7 +1299,7 @@ class NeuroArch(object):
             Each dict in the list defines a type of morphology of the neuron.
             Must be loaded from a file.
             The dict must include the following key to indicate the type of morphology:
-                {'type': 'swc'/'obj'/...}
+            {'type': 'swc'/'obj'/...}
             Additional keys must be provides, either 'filename' with value
             indicating the file to be read for the morphology,
             or a full definition of the morphology according the schema.
@@ -1309,8 +1309,8 @@ class NeuroArch(object):
             A list of dictionaries define the arborization pattern of
             the neuron in neuropils, subregions, and tracts, if applicable, with
             {'type': 'neuropil' or 'subregion' or 'tract',
-             'dendrites': {'EB': 20, 'FB': 2},
-             'axons': {'NO': 10, 'MB': 22}}
+            'dendrites': {'EB': 20, 'FB': 2},
+            'axons': {'NO': 10, 'MB': 22}}
             Name of the regions must already be present in the database.
         neurotransmitters : str or list of str (optional)
             The neurotransmitter(s) expressed by the neuron
@@ -1471,7 +1471,7 @@ class NeuroArch(object):
             Each dict in the list defines a type of morphology of the neuron.
             Must be loaded from a file.
             The dict must include the following key to indicate the type of morphology:
-                {'type': 'swc'/'obj'/...}
+            {'type': 'swc'/'obj'/...}
             Additional keys must be provides, either 'filename' with value
             indicating the file to be read for the morphology,
             or a full definition of the morphology according the schema.
@@ -1481,8 +1481,8 @@ class NeuroArch(object):
             A list of dictionaries define the arborization pattern of
             the neuron in neuropils, subregions, and tracts, if applicable, with
             {'type': 'neuropil' or 'subregion' or 'tract',
-             'dendrites': {'EB': 20, 'FB': 2},
-             'axons': {'NO': 10, 'MB': 22}}
+            'dendrites': {'EB': 20, 'FB': 2},
+            'axons': {'NO': 10, 'MB': 22}}
             Name of the regions must already be present in the database.
         data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
@@ -1657,7 +1657,7 @@ class NeuroArch(object):
             Each dict in the list defines a type of morphology of the neuron.
             Must be loaded from a file.
             The dict must include the following key to indicate the type of morphology:
-                {'type': 'swc'/'obj'/...}
+            {'type': 'swc'/'obj'/...}
             Additional keys must be provides, either 'filename' with value
             indicating the file to be read for the morphology,
             or a full definition of the morphology according the schema.
@@ -1766,8 +1766,8 @@ class NeuroArch(object):
             A list of dictionaries define the arborization pattern of
             the neuron in neuropils, subregions, and tracts, if applicable, with
             {'type': 'neuropil' or 'subregion' or 'tract',
-             'dendrites': {'EB': 20, 'FB': 2},
-             'axons': {'NO': 10, 'MB': 22}}
+            'dendrites': {'EB': 20, 'FB': 2},
+            'axons': {'NO': 10, 'MB': 22}}
             Name of the regions must already be present in the database.
         data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
@@ -1871,7 +1871,7 @@ class NeuroArch(object):
             Each dict in the list defines a type of morphology of the neuron.
             Must be loaded from a file.
             The dict must include the following key to indicate the type of morphology:
-                {'type': 'swc'}
+            {'type': 'swc'}
             For swc, required fields are ['sample', 'identifier', 'x', 'y, 'z', 'r', 'parent'].
             For synapses, if both postsynaptic and presynaptic sites are available,
             x, y, z, r must each be a list where the first half indicate the
@@ -1884,7 +1884,7 @@ class NeuroArch(object):
             A list of dictionaries define the arborization pattern of
             the neuron in neuropils, subregions, and tracts, if applicable, with
             {'type': 'neuropil' or 'subregion' or 'tract',
-             'synapses': {'EB': 20, 'FB': 2}}
+            'synapses': {'EB': 20, 'FB': 2}}
             Name of the regions must already be present in the database.
         data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
@@ -2005,7 +2005,7 @@ class NeuroArch(object):
             A list of dictionaries define the arborization pattern of
             the neuron in neuropils, subregions, and tracts, if applicable, with
             {'type': 'neuropil' or 'subregion' or 'tract',
-             'synapses': {'EB': 20, 'FB': 2}}
+            'synapses': {'EB': 20, 'FB': 2}}
             Name of the regions must already be present in the database.
         data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
@@ -2078,7 +2078,7 @@ class NeuroArch(object):
             Each dict in the list defines a type of morphology of the neuron.
             Must be loaded from a file.
             The dict must include the following key to indicate the type of morphology:
-                {'type': 'swc'}
+            {'type': 'swc'}
             For swc, required fields are ['sample', 'identifier', 'x', 'y, 'z', 'r', 'parent'].
             For synapses, if both postsynaptic and presynaptic sites are available,
             x, y, z, r must each be a list where the first half indicate the
@@ -2091,7 +2091,7 @@ class NeuroArch(object):
             A list of dictionaries define the arborization pattern of
             the neuron in neuropils, subregions, and tracts, if applicable, with
             {'type': 'neuropil' or 'subregion' or 'tract',
-             'synapses': {'EB': 20, 'FB': 2}}
+            'synapses': {'EB': 20, 'FB': 2}}
             Name of the regions must already be present in the database.
         data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
@@ -2454,21 +2454,21 @@ class NeuroArch(object):
         post_neurons_objs = []
         for neuron in pre_neurons:
             if isinstance(neuron, models.Neuron):
-                pre_neuron_objs.append(neuron)
+                pre_neurons_objs.append(neuron)
             elif isinstance(neuron, str):
-                pre_neuron_objs.append(self.get('Neuron', neuron, connect_DataSource))
+                pre_neurons_objs.append(self.get('Neuron', neuron, connect_DataSource))
             else:
                 raise TypeError('Parameter neuron must be either a str or a Neuron object.')
         for neuron in post_neurons:
             if isinstance(neuron, models.Neuron):
-                post_neuron_objs.append(neuron)
+                post_neurons_objs.append(neuron)
             elif isinstance(neuron, str):
-                post_neuron_objs.append(self.get('Neuron', neuron, connect_DataSource))
+                post_neurons_objs.append(self.get('Neuron', neuron, connect_DataSource))
             else:
                 raise TypeError('Parameter neuron must be either a str or a Neuron object.')
 
-        pre_q = QueryWrapper.from_objs(self.graph, pre_objs)
-        post_q = QueryWrapper.from_objs(self.graph, post_neuron_objs)
+        pre_q = QueryWrapper.from_objs(self.graph, pre_neurons_objs)
+        post_q = QueryWrapper.from_objs(self.graph, post_neurons_objs)
         synapses = outgoing_synapses(pre_q) & incoming_synapses(post_q)
         self.remove_synapses(synapses.node_objs, safe = False)
 
@@ -2513,7 +2513,7 @@ class NeuroArch(object):
             Each dict in the list defines a type of morphology of the neuron.
             Must be loaded from a file.
             The dict must include the following key to indicate the type of morphology:
-                {'type': 'swc'/'obj'/...}
+            {'type': 'swc'/'obj'/...}
             Additional keys must be provides, either 'filename' with value
             indicating the file to be read for the morphology,
             or a full definition of the morphology according the schema.
@@ -2523,8 +2523,8 @@ class NeuroArch(object):
             A list of dictionaries define the arborization pattern of
             the neuron in neuropils, subregions, and tracts, if applicable, with
             {'type': 'neuropil' or 'subregion' or 'tract',
-             'dendrites': {'EB': 20, 'FB': 2},
-             'axons': {'NO': 10, 'MB': 22}}
+            'dendrites': {'EB': 20, 'FB': 2},
+            'axons': {'NO': 10, 'MB': 22}}
             Name of the regions must already be present in the database.
         neurotransmitters : str or list of str (optional)
             The neurotransmitter(s) expressed by the neuron
@@ -2735,7 +2735,7 @@ class NeuroArch(object):
             Each dict in the list defines a type of morphology of the neuron.
             Must be loaded from a file.
             The dict must include the following key to indicate the type of morphology:
-                {'type': 'swc'}
+            {'type': 'swc'}
             For swc, required fields are ['sample', 'identifier', 'x', 'y, 'z', 'r', 'parent'].
             For synapses, if both postsynaptic and presynaptic sites are available,
             x, y, z, r must each be a list where the first half indicate the
@@ -2748,7 +2748,7 @@ class NeuroArch(object):
             A list of dictionaries define the arborization pattern of
             the neuron in neuropils, subregions, and tracts, if applicable, with
             {'type': 'neuropil' or 'subregion' or 'tract',
-             'synapses': {'EB': 20, 'FB': 2}}
+            'synapses': {'EB': 20, 'FB': 2}}
             Name of the regions must already be present in the database.
         data_source : models.DataSource (optional)
             The datasource. If not specified, default DataSource will be used.
@@ -3370,6 +3370,96 @@ class NeuroArch(object):
             # link(port_obj, synapse_model_obj, edge_type = 'SendsTo', variable = synapse_model_obj.link_pre)
             # link pre_port -> Pattern in port, Pattern in port to Pattern out port, Pattern out port to port_obj
         return synapse_model_obj
+    
+    def query_neuron(self, uname = None, referenceId = None):
+        """
+        Query neurons by unique name or referenceId
+        
+        Parameters
+        ----------
+        uname : str
+            Query neuron by the uname of the neuron.
+        referenceId : str
+            Query neuron by the id in the original dataset.
+        
+        Returns
+        -------
+        query.QueryWrapper
+            A query wrapper including the neurons
+        """
+        if uname is not None:
+            q = self.sql_query(""" select from Neuron where uname = "{}" """.format(uname))
+        else:
+            q = self.sql_query(""" select from Neuron where referenceId = {} """.format(referenceId))
+        return q
+
+    def query_celltype(self, celltype):
+        """
+        Query neurons by cell type.
+        
+        Parameters
+        ----------
+        celltype : str
+            Query neuron by the cell type of the neuron.
+        
+        Returns
+        -------
+        query.QueryWrapper
+            A query wrapper including the neurons
+        """
+        return self.sql_query(""" select from Neuron where name = "{}" """.format(celltype))
+    
+    def query_synapses(self, pre_name, post_name):
+        """
+        Query synapses by presynaptic and postsynaptic neuron unames
+        
+        Parameters
+        ----------
+        pre_name : str
+            Name of the presynaptic neuron.
+        post_name : str
+            Name of the postsynaptic neuron.
+        
+        Returns
+        -------
+        query.QueryWrapper
+            A query wrapper including the synapses
+        """
+        return self.sql_query(
+            """ select from Synapse where uname = "{}--{}" """.format(pre_name, post_name))
+    
+    def query_neuropil(self, neuropil):
+        """
+        Query neuropil by name.
+        
+        Parameters
+        ----------
+        neuropil : str
+            name of the neuropil
+        
+        Returns
+        -------
+        query.QueryWrapper
+            A query wrapper including the neuropil
+        """
+        return self.sql_query(""" select from Neuropil where name = "{}" """.format(neuropil))
+
+    def query_subregion(self, subregion):
+        """
+        Query subregion by name.
+        
+        Parameters
+        ----------
+        subregion : str
+            name of the subregion
+        
+        Returns
+        -------
+        query.QueryWrapper
+            A query wrapper including the subregion
+        """
+        return self.sql_query(""" select from Subregion where name = "{}" """.format(subregion))
+
 
 def outgoing_synapses(q, N = None, rel='>',include_inferred=True):
     """
