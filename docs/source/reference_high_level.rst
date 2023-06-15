@@ -35,6 +35,11 @@ Methods for Loading Biological Entities
 .. autosummary::
    :toctree: generated/
 
+   NeuroArch.query_neuron
+   NeuroArch.query_celltype
+   NeuroArch.query_synapses
+   NeuroArch.query_neuropil
+   NeuroArch.query_subregion
    NeuroArch.add_Species
    NeuroArch.add_DataSource
    NeuroArch.add_Subsystem

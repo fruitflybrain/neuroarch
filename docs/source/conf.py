@@ -23,7 +23,7 @@ copyright = '2021, Lev E. Givon, Nikul H. Ukani, Yiyin Zhou'
 author = 'Lev E. Givon, Nikul H. Ukani, Yiyin Zhou'
 
 # The full version, including alpha/beta/rc tags
-release = '0.3.1'
+release = '0.4.3'
 
 
 # -- General configuration ---------------------------------------------------
