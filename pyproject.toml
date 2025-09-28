@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neuroarch"
+version = "0.4.4"
+description = "A graph-based platform for representing Drosophila brain architectures"
+license = { text = "BSD" }
+authors = [
+  { name = "Lev Givon", email = "lev@columbia.edu" },
+  { name = "Nikul Ukani", email = "nikul@ee.columbia.edu" },
+  { name = "Yiyin Zhou", email = "yiyin.zhou@fordham.edu" }
+]
+maintainers = [
+  { name = "Yiyin Zhou", email = "yiyin.zhou@fordham.edu" }
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Topic :: Database :: Front-Ends",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Software Development"
+]
+dependencies = [
+  "daff",
+  "networkx>=2.4",
+  "numpy",
+  "pandas",
+  "path.py",
+  "pyorient @ https://github.com/fruitflybrain/pyorient/tarball/v1.6.2#egg=pyorient-1.6.2",
+  "pyorient_native @ https://github.com/fruitflybrain/pyorient_native/tarball/master#egg=pyorient_native-1.3.1",
+  "deepdiff",
+  "tqdm"
+]
+
+[project.optional-dependencies]
+doc = [
+  "sphinx>=1.3",
+  "sphinx_rtd_theme>=0.1.6"
+]
+
+[project.urls]
+Homepage = "https://github.com/fruitflybrain/neuroarch/"
+Download = "https://github.com/fruitflybrain/neuroarch/"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["neuroarch*"]
+
